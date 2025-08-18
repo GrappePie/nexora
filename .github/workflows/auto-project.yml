@@ -2,15 +2,21 @@ name: Auto add issues to Project and sync fields
 
 on:
   issues:
-    types: [opened, edited, labeled, unlabeled, reopened]
+    types: [opened, edited, labeled, unlabeled, reopened, closed]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: "Issue a re-sincronizar manualmente"
+        required: true
+        type: number
 
 permissions:
   contents: read
   issues: write
 
 env:
-  PROJECT_OWNER: GrappePie
-  PROJECT_NUMBER: "1"
+  PROJECT_OWNER: GrappePie     # dueño del Project (usuario u organizacion)
+  PROJECT_NUMBER: "1"          # numero del Project v2 (el de la URL)
 
 jobs:
   sync-project:
@@ -19,49 +25,51 @@ jobs:
       - name: Sync issue to Project and fields
         uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.GH_PAT }}   # PAT con scopes repo, project
+          github-token: ${{ secrets.GH_PAT }}   # PAT classic con scopes: repo, project
           script: |
-            function asciiLower(s){ return (s || "").toString().toLowerCase(); }
+            // Helpers basicos (ASCII)
+            function low(s){ return (s || "").toString().toLowerCase(); }
             function notNull(x){ return x !== null && x !== undefined; }
 
             const owner = process.env.PROJECT_OWNER;
             const projectNumber = parseInt(process.env.PROJECT_NUMBER, 10);
-            const issue = context.payload.issue;
-            if (!issue || !issue.number) { core.info("No issue in payload"); return; }
-            const issueNumber = issue.number;
 
-            // Get project id (user first, then org) with two separate calls to avoid partial errors
+            // Soporta ejecucion manual
+            const isManual = context.eventName === "workflow_dispatch";
+            const manualIssue = isManual ? Number(core.getInput("issue_number")) : null;
+            const issueNumber = isManual ? manualIssue : (context.payload.issue ? context.payload.issue.number : null);
+            if (!issueNumber) { core.info("No issue number"); return; }
+
+            // Obtener Project v2 ID (primero user, luego org) en dos consultas separadas
             async function getUserProjectId(login, number){
-              const r = await github.graphql(
-                "query($login:String!, $n:Int!){ user(login:$login){ projectV2(number:$n){ id } } }",
-                { login, n: number }
-              );
+              const q = "query($login:String!, $n:Int!){ user(login:$login){ projectV2(number:$n){ id } } }";
+              const r = await github.graphql(q, { login, n: number });
               return r && r.user && r.user.projectV2 ? r.user.projectV2.id : null;
             }
             async function getOrgProjectId(login, number){
-              const r = await github.graphql(
-                "query($login:String!, $n:Int!){ organization(login:$login){ projectV2(number:$n){ id } } }",
-                { login, n: number }
-              );
+              const q = "query($login:String!, $n:Int!){ organization(login:$login){ projectV2(number:$n){ id } } }";
+              const r = await github.graphql(q, { login, n: number });
               return r && r.organization && r.organization.projectV2 ? r.organization.projectV2.id : null;
             }
 
             let projectId = await getUserProjectId(owner, projectNumber);
             if (!projectId) { projectId = await getOrgProjectId(owner, projectNumber); }
-            if (!projectId) { core.setFailed("ProjectV2 not found for " + owner + " #" + projectNumber); return; }
+            if (!projectId) { core.setFailed("ProjectV2 no encontrado para " + owner + " #" + projectNumber); return; }
 
-            // Issue node id
-            const issueData = await github.rest.issues.get({
-              owner: context.repo.owner, repo: context.repo.repo, issue_number: issueNumber
+            // Datos frescos del issue y node_id
+            const issueView = await github.rest.issues.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber
             });
-            const issueNodeId = issueData.data && issueData.data.node_id ? issueData.data.node_id : null;
-            if (!issueNodeId) { core.setFailed("Cannot resolve issue node_id"); return; }
+            const issueNodeId = issueView.data && issueView.data.node_id ? issueView.data.node_id : null;
+            if (!issueNodeId) { core.setFailed("No se pudo resolver issue node_id"); return; }
 
-            // List ALL items with pagination (100 per page)
-            async function listAllIssueContentIds(projectId){
+            // Listar todos los items del project con paginacion (100 max por pagina)
+            async function listAllIssueItems(projectId){
               let hasNextPage = true;
               let cursor = null;
-              const ids = [];
+              const rows = [];
               while (hasNextPage) {
                 const q = "query($pid:ID!, $after:String){ node(id:$pid){ ... on ProjectV2 { items(first:100, after:$after){ pageInfo{ hasNextPage endCursor } nodes{ id content{ __typename ... on Issue { id number } } } } } } }";
                 const r = await github.graphql(q, { pid: projectId, after: cursor });
@@ -69,93 +77,104 @@ jobs:
                 const nodes = items.nodes || [];
                 for (const n of nodes) {
                   if (n && n.content && n.content.__typename === "Issue" && n.content.id) {
-                    ids.push({ itemId: n.id, issueContentId: n.content.id });
+                    rows.push({ itemId: n.id, issueContentId: n.content.id, number: n.content.number });
                   }
                 }
                 hasNextPage = items.pageInfo && items.pageInfo.hasNextPage ? true : false;
                 cursor = items.pageInfo ? items.pageInfo.endCursor : null;
               }
-              return ids;
+              return rows;
             }
 
-            const all = await listAllIssueContentIds(projectId);
-            const exists = all.find(x => x.issueContentId === issueNodeId);
-            let itemId = exists ? exists.itemId : null;
+            const all = await listAllIssueItems(projectId);
+            let item = all.find(x => x.issueContentId === issueNodeId);
+            let itemId = item ? item.itemId : null;
 
-            // Add item if missing
+            // Agregar al Project si falta
             if (!itemId) {
               const addRes = await github.graphql(
                 "mutation($projectId:ID!, $contentId:ID!){ addProjectV2ItemById(input:{projectId:$projectId, contentId:$contentId}){ item{ id } } }",
                 { projectId, contentId: issueNodeId }
               );
               itemId = addRes && addRes.addProjectV2ItemById && addRes.addProjectV2ItemById.item ? addRes.addProjectV2ItemById.item.id : null;
-              core.info("Added item: " + itemId);
+              core.info("Item agregado: " + itemId);
             } else {
-              core.info("Item already exists: " + itemId);
+              core.info("Item ya existia: " + itemId);
             }
-            if (!itemId) { core.setFailed("Could not obtain itemId"); return; }
+            if (!itemId) { core.setFailed("No se pudo obtener itemId"); return; }
 
-            // Fetch fields Priority / Type / Area
+            // Obtener campos y opciones (Priority, Type, Area, Status)
             const fieldsRes = await github.graphql(
-              "query($pid:ID!){ node(id:$pid){ ... on ProjectV2 { fields(first:50){ nodes{ __typename ... on ProjectV2FieldCommon{ id name } ... on ProjectV2SingleSelectField{ id name options{ id name } } } } } } }",
+              "query($pid:ID!){ node(id:$pid){ ... on ProjectV2 { fields(first:50){ nodes{ __typename id name ... on ProjectV2SingleSelectField { options { id name } } } } } } }",
               { pid: projectId }
             );
             const fieldNodes = (((fieldsRes || {}).node || {}).fields || {}).nodes || [];
-            function findSelect(name){
-              const target = asciiLower(name);
-              for (const f of fieldNodes) {
-                if (f && f.options && asciiLower(f.name) === target) return f;
-              }
+            function findFieldByName(name){
+              const target = low(name);
+              for (const f of fieldNodes) { if (f && f.name && low(f.name) === target) return f; }
               return null;
+            }
+            function findSelect(name){
+              const f = findFieldByName(name);
+              return (f && f.options) ? f : null;
             }
             const priorityField = findSelect("Priority");
             const typeField     = findSelect("Type");
             const areaField     = findSelect("Area");
+            const statusField   = findSelect("Status");  // suele ser SINGLE_SELECT en Projects v2 por defecto
 
-            // Labels fresh
-            const fresh = await github.rest.issues.get({
-              owner: context.repo.owner, repo: context.repo.repo, issue_number: issueNumber
-            });
-            const labels = (fresh.data.labels || []).map(l => {
-              if (typeof l === "string") return asciiLower(l);
-              if (l && l.name) return asciiLower(l.name);
+            // Labels del issue (minusc)
+            const labels = (issueView.data.labels || []).map(l => {
+              if (typeof l === "string") return low(l);
+              if (l && l.name) return low(l.name);
               return null;
             }).filter(notNull);
 
             function optionIdByName(field, nameLower){
               if (!field || !field.options) return null;
-              for (const o of field.options) { if (asciiLower(o.name) === nameLower) return o.id; }
+              for (const o of field.options) { if (o && o.name && low(o.name) === nameLower) return o.id; }
               return null;
             }
 
-            // Map Priority from labels priority:*
+            // Mapear Priority desde labels priority:*
             let prioId = null;
             for (const p of ["priority:high","priority:medium","priority:low"]) {
               if (labels.indexOf(p) !== -1) { prioId = optionIdByName(priorityField, p.split(":")[1]); break; }
             }
-            // Map Type from labels type:*
+            // Mapear Type desde labels type:*
             let typeId = null;
             for (const t of ["type:epic","type:story","type:task"]) {
               if (labels.indexOf(t) !== -1) { typeId = optionIdByName(typeField, t.split(":")[1]); break; }
             }
-            // Map Area: first label that matches an Area option
+            // Mapear Area: primer label que coincida con una opcion de Area
             let areaId = null;
             if (areaField && areaField.options) {
               for (const o of areaField.options) {
-                const nm = asciiLower(o.name);
+                const nm = low(o.name);
                 if (labels.indexOf(nm) !== -1) { areaId = o.id; break; }
               }
             }
 
-            async function setSelect(field, optId){
+            async function setSingleSelect(field, optId){
               if (!field || !optId) return;
               await github.graphql(
                 "mutation($pid:ID!, $iid:ID!, $fid:ID!, $opt:String!){ updateProjectV2ItemFieldValue(input:{ projectId:$pid, itemId:$iid, fieldId:$fid, value:{ singleSelectOptionId:$opt } }){ clientMutationId } }",
                 { pid: projectId, iid: itemId, fid: field.id, opt: optId }
               );
             }
-            await setSelect(priorityField, prioId);
-            await setSelect(typeField,     typeId);
-            await setSelect(areaField,     areaId);
 
-            core.info("Sync OK for issue #" + issueNumber);
+            // Aplicar Priority/Type/Area si hay label y opcion
+            await setSingleSelect(priorityField, prioId);
+            await setSingleSelect(typeField,     typeId);
+            await setSingleSelect(areaField,     areaId);
+
+            // Si el issue fue cerrado, intenta poner Status=Done (si existe esa opcion)
+            if (!isManual && context.payload.action === "closed" && statusField && statusField.options) {
+              const doneOpt = statusField.options.find(o => o && o.name && low(o.name) === "done");
+              if (doneOpt) {
+                await setSingleSelect(statusField, doneOpt.id);
+                core.info("Status => Done");
+              }
+            }
+
+            core.info("Sync OK para issue #" + issueNumber);
