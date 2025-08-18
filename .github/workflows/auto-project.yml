@@ -1,0 +1,188 @@
+name: Auto add issues to Project and sync fields
+
+on:
+  issues:
+    types: [opened, edited, labeled, unlabeled, reopened]
+
+permissions:
+  contents: read
+  issues: write
+  projects: write
+
+env:
+  PROJECT_OWNER: GrappePie         # <-- CAMBIA si es organización o distinto usuario
+  PROJECT_NUMBER: "1"              # <-- CAMBIA al número de tu Project (el que ves en la URL)
+
+jobs:
+  sync-project:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sync issue to Project and fields
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = process.env.PROJECT_OWNER;
+            const projectNumber = parseInt(process.env.PROJECT_NUMBER, 10);
+            const issue = context.payload.issue;
+
+            // Guard: solo en issues (no PRs)
+            if (!issue || !issue.number) {
+              core.info("No issue in payload. Exiting.");
+              return;
+            }
+
+            // 1) Obtener el ID del proyecto (Projects v2)
+            const projRes = await github.graphql(`
+              query($owner:String!, $projectNumber:Int!) {
+                user(login: $owner) {
+                  projectV2(number: $projectNumber) { id }
+                }
+                organization(login: $owner) {
+                  projectV2(number: $projectNumber) { id }
+                }
+              }
+            `, { owner, projectNumber });
+
+            const projectId =
+              projRes.user?.projectV2?.id || projRes.organization?.projectV2?.id;
+
+            if (!projectId) {
+              core.setFailed(`No se encontró ProjectV2 ${owner} #${projectNumber}`);
+              return;
+            }
+
+            // 2) Asegurar que el issue esté agregado al Project
+            //    Primero obtener el node_id del issue
+            const { data: issueData } = await github.rest.issues.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number
+            });
+
+            const issueNodeId = issueData.node_id;
+
+            // ¿Ya existe el item del issue en el project?
+            const searchItems = await github.graphql(`
+              query($projectId:ID!, $issueNodeId:ID!) {
+                node(id: $projectId) {
+                  ... on ProjectV2 {
+                    items(first: 100, query: "") {
+                      nodes {
+                        id
+                        content { __typename ... on Issue { id number title } }
+                      }
+                    }
+                  }
+                }
+              }
+            `, { projectId, issueNodeId });
+
+            let itemId = null;
+            const nodes = searchItems?.node?.items?.nodes || [];
+            for (const n of nodes) {
+              if (n.content?.__typename === "Issue" && n.content.id === issueNodeId) {
+                itemId = n.id;
+                break;
+              }
+            }
+
+            if (!itemId) {
+              // Agregarlo
+              const addRes = await github.graphql(`
+                mutation($projectId:ID!, $contentId:ID!) {
+                  addProjectV2ItemById(input:{projectId:$projectId, contentId:$contentId}) {
+                    item { id }
+                  }
+                }
+              `, { projectId, contentId: issueNodeId });
+              itemId = addRes?.addProjectV2ItemById?.item?.id;
+              core.info(`Item agregado al Project: ${itemId}`);
+            } else {
+              core.info(`Item ya existía en el Project: ${itemId}`);
+            }
+
+            if (!itemId) {
+              core.setFailed("No se pudo obtener/crear itemId.");
+              return;
+            }
+
+            // 3) Obtener fields del Project (Priority/Type/Area)
+            const fieldsRes = await github.graphql(`
+              query($projectId:ID!) {
+                node(id:$projectId) {
+                  ... on ProjectV2 {
+                    fields(first: 50) {
+                      nodes {
+                        ... on ProjectV2SingleSelectField {
+                          id
+                          name
+                          options { id name }
+                        }
+                        ... on ProjectV2FieldCommon {
+                          id
+                          name
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            `, { projectId });
+
+            const fieldNodes = fieldsRes?.node?.fields?.nodes || [];
+
+            function findSelectField(name) {
+              return fieldNodes.find(f => f.name?.toLowerCase() === name.toLowerCase() && f.options);
+            }
+
+            const priorityField = findSelectField("Priority");
+            const typeField     = findSelectField("Type");
+            const areaField     = findSelectField("Area");
+
+            // 4) Mapear labels -> valores de campos
+            const labels = (issue.labels || []).map(l => (typeof l === "string" ? l : l.name)).filter(Boolean).map(s => s.toLowerCase());
+
+            function getOptionId(field, nameLower) {
+              const opt = field?.options?.find(o => o.name?.toLowerCase() === nameLower);
+              return opt?.id || null;
+            }
+
+            // Priority desde labels priority:*
+            let priorityVal = null;
+            for (const p of ["priority:high","priority:medium","priority:low"]) {
+              if (labels.includes(p)) { priorityVal = p.split(":")[1]; break; }
+            }
+            const priorityOptId = priorityVal ? getOptionId(priorityField, priorityVal) : null;
+
+            // Type desde labels type:*
+            let typeVal = null;
+            for (const t of ["type:epic","type:story","type:task"]) {
+              if (labels.includes(t)) { typeVal = t.split(":")[1]; break; }
+            }
+            const typeOptId = typeVal ? getOptionId(typeField, typeVal) : null;
+
+            // Area: primer label que coincida con una opción válida
+            const areaNames = new Set((areaField?.options || []).map(o => o.name.toLowerCase()));
+            const areaVal = labels.find(l => areaNames.has(l));
+            const areaOptId = areaVal ? getOptionId(areaField, areaVal) : null;
+
+            // 5) Asignar valores (solo si existen campo+opción)
+            async function setSingleSelect(field, optId) {
+              if (!field || !optId) return;
+              await github.graphql(`
+                mutation($projectId:ID!, $itemId:ID!, $fieldId:ID!, $optionId:String!) {
+                  updateProjectV2ItemFieldValue(input:{
+                    projectId:$projectId,
+                    itemId:$itemId,
+                    fieldId:$fieldId,
+                    value:{ singleSelectOptionId:$optionId }
+                  }) { clientMutationId }
+                }
+              `, { projectId, itemId, fieldId: field.id, optionId: optId });
+            }
+
+            await setSingleSelect(priorityField, priorityOptId);
+            await setSingleSelect(typeField,     typeOptId);
+            await setSingleSelect(areaField,     areaOptId);
+
+            core.info("Sincronizado con Project OK");
