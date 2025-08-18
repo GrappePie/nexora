@@ -1,12 +1,19 @@
 {
   "name": "nexora",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "backend:install": "python -m pip install -r backend/requirements.txt",
+    "backend:dev": "python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --env-file backend/.env",
+    "backend:alembic:upgrade": "python -m alembic -c backend/alembic.ini upgrade head",
+    "backend:alembic:downgrade": "python -m alembic -c backend/alembic.ini downgrade -1",
+    "backend:test": "python -m pytest backend -q",
+    "dev:all": "concurrently -n core,web -c cyan,magenta \"npm:backend:dev\" \"next dev --turbopack\""
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",
@@ -30,6 +37,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "concurrently": "^9.0.1",
     "eslint": "^9",
     "eslint-config-next": "15.4.6",
     "tailwindcss": "^4",

@@ -9,6 +9,14 @@
 | `APP_ENV`    | `local`       | Entorno (`local/staging/prod`).  |
 | `APP_SECRET` | `cambia_esto` | Clave de app (firmas, sesiones). |
 
+### Backend Core (FastAPI)
+
+| Variable               | Ejemplo                                           | Uso |
+| ---------------------- | ------------------------------------------------- | --- |
+| `BACKEND_API_BASE`     | `http://localhost:8000`                           | URL base que usa el BFF (API routes de Next.js) para llamar al Core. |
+| `NEXT_PUBLIC_API_BASE` | `http://backend:8000`                              | Alternativa expuesta al front si se llega a consumir directo (evitar en prod; preferir BFF). |
+| `DATABASE_URL`         | `sqlite:///backend.db` o `postgresql+psycopg://nexora:nexora@127.0.0.1:5432/nexora` | URL de conexión de la base de datos usada por el Core. Si no se define, se usa SQLite local. |
+
 ### Base de datos
 
 | Variable            | Ejemplo |

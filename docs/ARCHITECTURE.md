@@ -2,7 +2,7 @@
 
 Este documento resume la arquitectura actual y el plan de evolución del proyecto. Incluye diagramas **Mermaid** para ayudar a visualizar los componentes, flujos y despliegue.
 
-> Estado actual: Frontend Next.js 15 (App Router) + Tailwind. Sin backend ni base de datos en este repo. Sin PWA/offline aún.
+> Estado actual: Frontend Next.js 15 (App Router) + Tailwind, y un Core **FastAPI** básico (endpoints de salud, auth demo y cotizaciones in‑memory) en este repositorio. Aún sin base de datos real.
 > Plan futuro: API (FastAPI/Python) + DB (PostgreSQL) + cache/objetos (Redis/MinIO) + auth. Los diagramas marcan este objetivo.
 
 > _Stack base_: **Next.js (App Router)**, **Redux Toolkit**, **NextAuth** (Prisma Adapter), **Prisma**, **PostgreSQL**. Opcionales: OAuth (GitHub/Google), Tailwind, shadcn/ui.

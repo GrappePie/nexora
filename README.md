@@ -19,6 +19,8 @@ El portal web permite la administración centralizada del sistema. La autenticac
 Puedes conectar celulares y tablets al sistema principal mediante códigos QR, facilitando el acceso y la operación remota. Revisa la documentación técnica para detalles de implementación.
 
 ## Documentación adicional
+- [docs/GETTING_STARTED.md](docs/GETTING_STARTED.md) — Cómo empezar (Sprint 0)
+- [docs/ADMIN_PANEL.md](docs/ADMIN_PANEL.md) — Panel de administración (/dashboard)
 - [docs/API_REFERENCE.md](docs/API_REFERENCE.md) — Referencia de API
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — Arquitectura
 - [docs/DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md) — Esquema de base de datos

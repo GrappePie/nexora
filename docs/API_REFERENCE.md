@@ -5,29 +5,65 @@ Backend **FastAPI** con OpenAPI disponible en `/docs` y `/openapi.json` desde la
 ### Base
 
 - **LAN**: `http://taller.local:3000` (Frontend) → `http://backend:8000` (API)
+- **Desarrollo local**: `http://localhost:3000` (Frontend) → `http://localhost:8000` (API)
 - **Producción externa**: no aplica (se usa túnel para `/approve/*`).
 
-### Autenticación (MVP)
+---
 
-- MVP usa `require_user()` simulado. En iteración 2: **JWT** (bearer) + roles.
+## Slice 1 (implementado)
 
-### Rutas principales (MVP)
+Endpoints actuales en el código, listos para pruebas E2E.
 
-> Los nombres pueden ajustarse en iteración 2. Esta referencia cubre lo *usable hoy*.
+### Core (FastAPI)
 
-#### Health
+- `GET /health` → `{ ok: true, service: "core", version: "0.1.1" }`
+- `POST /auth/login`
+  - Body: `{ "email": string, "password": string }`
+  - Resp: `{ "access_token": string, "token_type": "bearer", "exp": number, "roles": string[] }`
+  - Nota: usuario demo `admin@example.com` / `admin`.
+- `GET /quotes/` → lista de cotizaciones (in‑memory stub)
+- `POST /quotes/`
+  - Body: `{ "customer": string, "total": number }`
+  - Resp: `{ id: string, customer: string, total: number, status: "pending", token: string }`
+- `POST /quotes/approve-check`
+  - Body: `{ "token": string }`
+  - Resp: `{ ok: boolean, quote_id?: string }`
+
+### BFF (Next.js API Routes)
+
+- `GET /api/health` → proxy a Core `/health`.
+- `POST /api/auth/login` → proxy a Core `/auth/login`.
+- `GET /api/quotes` → proxy a Core `/quotes/`.
+- `POST /api/quotes` → proxy a Core `/quotes/`.
+- `GET /api/approve/check?token=...` → proxy a Core `/quotes/approve-check`.
+
+### Página pública
+
+- `GET /approve/[token]` → vista que consulta `GET /api/approve/check?token=...` y muestra estado.
+
+Notas
+
+- Variables: `BACKEND_API_BASE` y `NEXT_PUBLIC_API_BASE` controlan el destino del BFF (ver `docs/ENVIRONMENT.md`).
+- Seguridad: el host externo solo debe servir `/approve/*` (ver `docs/SECURITY.md`).
+
+---
+
+## Rutas de referencia (plan y evolución)
+
+> Los nombres pueden ajustarse en iteraciones siguientes. Esta sección conserva objetivos de alcance más amplio.
+
+### Health
 
 - `GET /api/health` → `{ ok: true }`
 
-#### Licensing
+### Licensing
 
 - `GET /api/licensing/provision?code=ABC123` → Provisión demo del host.
 
-#### Quotes (Cotizaciones)
+### Quotes (Cotizaciones)
 
-- `POST /api/quotes`\
-  **Body**:
-
+- `POST /api/quotes`
+  Body ejemplo (objetivo ampliado):
   ```json
   {
     "customer_id": "uuid",
@@ -36,20 +72,19 @@ Backend **FastAPI** con OpenAPI disponible en `/docs` y `/openapi.json` desde la
     ]
   }
   ```
+  Resp: `{ "id": "uuid", "approval_token": "hex" }`
 
-  **Resp**: `{ "id": "uuid", "approval_token": "hex" }`
+- `POST /api/quotes/{quoteId}/approve`
+  Body: `items: string[]` (ids aprobados) → crea **OT** y marca aprobados.
 
-- `POST /api/quotes/{quoteId}/approve`\
-  **Body**: `items: string[]` (ids aprobados) → crea **OT** y marca aprobados.
+### Uploads (Evidencias)
 
-#### Uploads (Evidencias)
-
-- `POST /api/uploads/photos/presign`\
-  **Body**:
+- `POST /api/uploads/photos/presign`
+  Body:
   ```json
   {"work_order_id":"uuid","filename":"foto.jpg","content_type":"image/jpeg"}
   ```
-  **Resp**: `{ url, s3_key }` (PUT directo a MinIO por 15 min).
+  Resp: `{ url, s3_key }` (PUT directo a MinIO por 15 min).
 
 ### Convenciones
 

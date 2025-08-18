@@ -1,3 +1,50 @@
+# Cómo empezar (Sprint 0)
+
+Este proyecto usa dos backends: BFF en Next.js (LAN) y Core en FastAPI (Docker red interna). Empezar por el Core y un slice E2E pequeño.
+
+Prerrequisitos
+- Node 18/20+, PNPM/NPM, Python 3.11+, Docker Desktop/Engine, GitHub CLI (gh).
+
+Paso 1 — Crear issues del backlog
+- Desde la raíz del repo, usa los scripts incluidos:
+  - PowerShell (Windows): `./create_gh_issues.ps1`
+  - Bash (WSL/macOS/Linux): `./gh_issues/create_gh_issues.sh`
+- Revisa `gh_issues/README.md` y `created_issues.log`.
+
+Paso 2 — Backend Core (FastAPI)
+- Objetivo: Auth JWT, RBAC, Licencia, Cotizaciones y Aprobación pública.
+- Basarte en docs: ARCHITECTURE.md (§2, §6), DATABASE_SCHEMA.md, LICENSING.md, SECURITY.md.
+- Entregables mínimos:
+  - OpenAPI con rutas: `POST /auth/login`, `GET /license/status`, `GET/POST /quotes`, `POST /quotes/{id}/approve-check`, `POST /work-orders`, `POST /evidence/presign`.
+  - DB: esquema base y migraciones (Alembic).
+  - Licencia: verificación Ed25519 y “modo limitado”.
+  - Storage: presigned URLs (MinIO/S3-compatible).
+
+Paso 3 — Frontend (Next.js, BFF)
+- Objetivo: proteger `/dashboard/*` (NextAuth), UI mínima y BFF que llama al Core.
+- Entregables mínimos:
+  - Guardas de sesión/rol en middleware.
+  - Página pública `/approve/[token]` que consulta al Core.
+  - BFF: API routes que validan sesión y proxéan al Core.
+  - Variables: `NEXT_PUBLIC_API_BASE=http://backend:8000` (en Docker) y `PUBLIC_BASE_*` para enlaces.
+
+Paso 4 — Túnel externo solo para aprobaciones
+- Sigue DNS_TUNNEL.md. Restringe host externo a `/approve/*` (ver SECURITY.md ejemplo de middleware).
+
+Paso 5 — Smoke test E2E (Slice 1)
+- Flujo: crear cotización → compartir link `/approve/<token>` → aprobar → crear orden.
+- Ver KPIs básicos en el dashboard.
+
+Referencias útiles
+- Panel admin: docs/ADMIN_PANEL.md
+- Arquitectura y roles: docs/ARCHITECTURE.md
+- Seguridad: docs/SECURITY.md
+- Licenciamiento: docs/LICENSING.md
+- CFDI sandbox: docs/CFDI_SANDBOX.md
+- Backups: docs/BACKUP_RESTORE.md
+
+---
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started

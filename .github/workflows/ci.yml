@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Frontend: Node setup, install, lint, typecheck, build
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Node dependencies
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
+
+      - name: Lint (Next.js)
+        run: npm run lint
+
+      - name: Typecheck (TypeScript)
+        run: npm run typecheck
+
+      - name: Build (Next.js)
+        run: npm run build
+
+      # Backend: Python setup, install, migrate, test
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install Python dependencies
+        run: python -m pip install -r backend/requirements.txt
+
+      - name: Run Alembic migrations (SQLite)
+        run: python -m alembic -c backend/alembic.ini upgrade head
+        env:
+          DATABASE_URL: sqlite:///backend.db
+
+      - name: Run backend tests (pytest)
+        run: python -m pytest backend -q
+        env:
+          DATABASE_URL: sqlite:///backend.db
+
