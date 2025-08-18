@@ -1,3 +1,7 @@
+### ¿El sistema funciona completamente en local?
+
+Sí. Nexora POS está diseñado para operar en la red local (LAN) del taller. La provisión de dispositivos, operación diaria y conexión de teléfonos/tablets se realiza sin Internet. **Solo la verificación y renovación de la licencia requiere acceso online**; el resto del sistema es local. Si la licencia expira y no puede renovarse online, el sistema entra en modo limitado tras el periodo de gracia.
+
 ### ¿Necesito Internet para usarlo?
 
 En la **LAN** funciona sin Internet. El timbrado/envíos quedan en **pendiente** hasta que vuelva la conexión.

@@ -1,3 +1,7 @@
+## Funcionamiento local
+
+Nexora POS se instala y opera completamente en la red local (LAN) del taller. No se requiere conexión a Internet para la instalación, provisión de dispositivos ni operación diaria. La **única función que requiere acceso online** es la verificación y renovación de la licencia, que se realiza desde el portal.
+
 ## Instalación del host (Ubuntu) — Nexora POS
 
 **Requisitos:** Ubuntu 22.04+, 2 vCPU, 4 GB RAM, 40 GB disco (mínimo), red estable.

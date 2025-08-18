@@ -1,3 +1,11 @@
+## Funcionamiento local y verificación online
+
+Nexora POS opera completamente en modo local (LAN), permitiendo la gestión y provisión de dispositivos sin requerir conexión a Internet. La **única función que requiere acceso online** es la verificación y renovación de la licencia:
+
+- El sistema puede funcionar offline durante el periodo de gracia (`grace_days`).
+- Si la licencia expira y no puede renovarse online, el sistema entra en **modo limitado**.
+- La provisión de dispositivos, operación diaria y flujos de trabajo se realizan en la red local.
+
 ## Formato de licencia (JSON)
 
 ```json

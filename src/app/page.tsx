@@ -1,11 +1,20 @@
 import type { NextPage } from 'next';
 import type { Metadata } from 'next';
-import { FaShieldAlt, FaServer, FaMobileAlt, FaWifi, FaFileAlt, FaCheckSquare, FaCommentDots, FaLayerGroup, FaBox } from 'react-icons/fa';
+import { FaServer, FaMobileAlt, FaWifi, FaFileAlt, FaCheckSquare, FaCommentDots, FaLayerGroup, FaBox, FaBars } from 'react-icons/fa';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { Separator } from '@/components/ui/separator';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Dialog, DialogContent, DialogDescription, DialogFooter as DialogFooterUI, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { SearchHero } from '@/components/search-hero';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 // Metadatos de la página para el App Router de Next.js
 export const metadata: Metadata = {
   title: 'Nexora - POS para Talleres Automotrices',
-  description: 'Nexora combina un POS especializado para talleres con un portal de suscripciones, despliegue on‑prem con Docker, modo offline y más.',
+  description: 'Nexora combina un POS especializado para talleres con un portal de suscripciones, despliegue on‑prem con Docker, modo offline (roadmap) y más.',
 };
 
 // Componente para íconos de características
@@ -17,33 +26,43 @@ const FeatureIcon = ({ children }: { children: React.ReactNode }) => (
 
 // Componente para tarjetas de características
 const FeatureCard = ({ icon, title, description }: { icon: React.ReactNode, title: string, description: string }) => (
-    <div className="flex items-start space-x-4">
-      {icon}
-      <div>
-        <h3 className="text-lg font-bold text-white">{title}</h3>
-        <p className="mt-1 text-gray-400">{description}</p>
-      </div>
-    </div>
+    <Card className="bg-gray-900/70 border-gray-700">
+      <CardContent className="p-6">
+        <div className="flex items-start space-x-4">
+          {icon}
+          <div>
+            <h3 className="text-lg font-bold text-white">{title}</h3>
+            <p className="mt-1 text-gray-400">{description}</p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
 );
 
 // Componente para tarjetas de precios
 const PricingCard = ({ plan, price, popular, features, buttonText }: { plan: string, price: string, popular?: boolean, features: string[], buttonText: string }) => (
-    <div className={`p-6 rounded-lg border ${popular ? 'border-blue-500 bg-gray-800/50' : 'border-gray-700'} flex flex-col`}>
-      {popular && <span className="text-xs font-bold text-blue-400 bg-blue-900/50 px-3 py-1 rounded-full self-start mb-4">Popular</span>}
-      <h3 className="text-2xl font-bold">{plan}</h3>
-      <p className="mt-2 text-4xl font-extrabold">{price}</p>
-      <ul className="mt-6 space-y-4 text-gray-400 flex-grow">
-        {features.map((feature, index) => (
-            <li key={index} className="flex items-center">
-              <FaCheckSquare className="w-5 h-5 text-green-400 mr-3" />
-              <span>{feature}</span>
-            </li>
-        ))}
-      </ul>
-      <button className={`mt-8 w-full py-3 font-semibold rounded-lg transition-transform hover:scale-105 ${popular ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-200'}`}>
-        {buttonText}
-      </button>
-    </div>
+    <Card className={`${popular ? 'border-blue-500 bg-gray-800/50' : ''} flex flex-col`}>
+      <CardHeader>
+        {popular && <Badge className="self-start">Popular</Badge>}
+        <CardTitle>{plan}</CardTitle>
+        <p className="mt-2 text-4xl font-extrabold">{price}</p>
+      </CardHeader>
+      <CardContent className="flex-grow">
+        <ul className="space-y-4 text-gray-400">
+          {features.map((feature, index) => (
+              <li key={index} className="flex items-center">
+                <FaCheckSquare className="w-5 h-5 text-green-400 mr-3" />
+                <span>{feature}</span>
+              </li>
+          ))}
+        </ul>
+      </CardContent>
+      <CardFooter>
+        <Button className="w-full" variant={popular ? 'default' : 'secondary'}>
+          {buttonText}
+        </Button>
+      </CardFooter>
+    </Card>
 );
 
 const Home: NextPage = () => {
@@ -54,15 +73,59 @@ const Home: NextPage = () => {
           <div className="container mx-auto px-6 py-4 flex justify-between items-center">
             <h1 className="text-2xl font-bold tracking-wider">NEXORA</h1>
             <nav className="hidden md:flex items-center space-x-8 text-sm">
-              <a href="#features" className="text-gray-300 hover:text-white transition">Características</a>
-              <a href="#product" className="text-gray-300 hover:text-white transition">Producto</a>
-              <a href="#pricing" className="text-gray-300 hover:text-white transition">Precios</a>
-              <a href="#stack" className="text-gray-300 hover:text-white transition">Stack</a>
-              <a href="/docs" className="text-gray-300 hover:text-white transition">Docs</a>
+              <Button asChild variant="link" className="text-gray-300 hover:text-white">
+                <a href="#features">Características</a>
+              </Button>
+              <Button asChild variant="link" className="text-gray-300 hover:text-white">
+                <a href="#product">Producto</a>
+              </Button>
+              <Button asChild variant="link" className="text-gray-300 hover:text-white">
+                <a href="#pricing">Precios</a>
+              </Button>
+              <Button asChild variant="link" className="text-gray-300 hover:text-white">
+                <a href="#stack">Stack</a>
+              </Button>
+              <Button asChild variant="link" className="text-gray-300 hover:text-white">
+                <a href="/docs">Docs</a>
+              </Button>
             </nav>
-            <button className="px-5 py-2 text-sm font-semibold bg-white text-gray-900 rounded-md hover:bg-gray-200 transition">
-              Ir al Portal
-            </button>
+            <div className="flex items-center gap-2">
+              <Button size="sm" className="hidden md:inline-flex bg-white text-gray-900 hover:bg-gray-200">
+                Ir al Portal
+              </Button>
+              <Sheet>
+                <SheetTrigger asChild>
+                  <Button size="sm" variant="secondary" className="md:hidden" aria-label="Abrir menú">
+                    <FaBars className="h-4 w-4" />
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="right" className="bg-gray-900 border-gray-800 text-white">
+                  <div className="p-6 space-y-4">
+                    <SheetTitle>NEXORA</SheetTitle>
+                    <Separator />
+                    <div className="flex flex-col gap-2">
+                      <Button asChild variant="link" className="justify-start">
+                        <a href="#features">Características</a>
+                      </Button>
+                      <Button asChild variant="link" className="justify-start">
+                        <a href="#product">Producto</a>
+                      </Button>
+                      <Button asChild variant="link" className="justify-start">
+                        <a href="#pricing">Precios</a>
+                      </Button>
+                      <Button asChild variant="link" className="justify-start">
+                        <a href="#stack">Stack</a>
+                      </Button>
+                      <Button asChild variant="link" className="justify-start">
+                        <a href="/docs">Docs</a>
+                      </Button>
+                    </div>
+                    <Separator />
+                    <Button className="w-full">Ir al Portal</Button>
+                  </div>
+                </SheetContent>
+              </Sheet>
+            </div>
           </div>
         </header>
 
@@ -80,18 +143,17 @@ const Home: NextPage = () => {
               </span>
               </h2>
               <p className="mt-6 max-w-3xl mx-auto text-lg text-gray-400">
-                Nexora combina un POS especializado para talleres con un portal de suscripciones, despliegue on‑prem con Docker, modo offline con días de gracia y rutas públicas de aprobación.
+                Nexora combina un POS especializado para talleres con un portal de suscripciones, despliegue on‑prem con Docker, modo offline con días de gracia (roadmap) y rutas públicas de aprobación.
               </p>
               <div className="mt-10 flex justify-center items-center space-x-4">
-                <button className="px-8 py-3 font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-transform hover:scale-105 shadow-lg shadow-blue-600/20">
+                <Button size="lg">
                   Empezar ahora
-                </button>
-                <a href="/docs">
-                  <button className="px-8 py-3 font-bold text-gray-300 bg-gray-800 rounded-lg hover:bg-gray-700 transition">
-                    Ver documentación
-                  </button>
-                </a>
+                </Button>
+                <Button asChild variant="secondary" size="lg">
+                  <a href="/docs">Ver documentación</a>
+                </Button>
               </div>
+              <SearchHero />
             </div>
           </section>
 
@@ -112,16 +174,72 @@ const Home: NextPage = () => {
                     <li className="flex items-center"><FaCheckSquare className="w-5 h-5 text-green-400 mr-3" />Integración CFDI (sandbox → producción)</li>
                   </ul>
                   <div className="mt-8 flex space-x-4">
-                    <button className="px-6 py-2 font-semibold bg-gray-700 rounded-lg hover:bg-gray-600">Probar en mi host</button>
-                    <button className="px-6 py-2 font-semibold bg-transparent border border-gray-600 rounded-lg hover:bg-gray-800">Leer guía</button>
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button variant="secondary">Probar en mi host</Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Probar en mi host</DialogTitle>
+                          <DialogDescription>
+                            Sigue la guía para levantar Nexora en tu máquina usando Docker Compose.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <p className="text-sm text-gray-300">Requisitos: Docker + Docker Compose, 2 GB RAM libres. Ambiente Ubuntu recomendado.</p>
+                        <DialogFooterUI>
+                          <Button asChild variant="link">
+                            <a href="/docs/INSTALL">Ver instalación</a>
+                          </Button>
+                          <Button asChild>
+                            <a href="/docs/OPERATIONS">Operación</a>
+                          </Button>
+                        </DialogFooterUI>
+                      </DialogContent>
+                    </Dialog>
+                    <Button variant="outline">Leer guía</Button>
+                  </div>
+                  <div className="mt-8">
+                    <Tabs defaultValue="vision">
+                      <TabsList>
+                        <TabsTrigger value="vision">Visión</TabsTrigger>
+                        <TabsTrigger value="modulos">Módulos</TabsTrigger>
+                        <TabsTrigger value="infra">Infra</TabsTrigger>
+                      </TabsList>
+                      <TabsContent value="vision">
+                        <p>POS especializado para talleres, con foco LAN‑first, operación offline y aprobaciones públicas.</p>
+                      </TabsContent>
+                      <TabsContent value="modulos">
+                        <ul className="list-disc pl-5 space-y-1">
+                          <li>Órdenes de trabajo</li>
+                          <li>Inventario y cotizaciones</li>
+                          <li>Aprobaciones y clientes</li>
+                        </ul>
+                      </TabsContent>
+                      <TabsContent value="infra">
+                        <ul className="list-disc pl-5 space-y-1">
+                          <li>Docker Compose on‑prem</li>
+                          <li>PostgreSQL, Redis, MinIO</li>
+                          <li>CFDI sandbox → prod</li>
+                        </ul>
+                      </TabsContent>
+                    </Tabs>
                   </div>
                 </div>
                 <div className="md:w-1/2 mt-10 md:mt-0 grid grid-cols-2 gap-4">
                   {["Orden de trabajo", "Inventario", "Cotizaciones", "Aprobaciones", "Clientes", "Reportes"].map(item => (
-                      <div key={item} className="bg-gray-900/70 p-4 rounded-lg border border-gray-700/80 text-center">
-                        <p className="font-semibold">{item}</p>
-                        <a href="#" className="text-sm text-blue-400 hover:underline">Demo UI</a>
-                      </div>
+                      <Card key={item} className="bg-gray-900/70 border-gray-700/80 text-center">
+                        <CardContent className="p-4">
+                          <p className="font-semibold">{item}</p>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button asChild variant="link" className="text-blue-400 hover:text-blue-300 p-0 h-auto">
+                                <a href="#">Demo UI</a>
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Vista previa de la interfaz</TooltipContent>
+                          </Tooltip>
+                        </CardContent>
+                      </Card>
                   ))}
                 </div>
               </div>
@@ -143,7 +261,7 @@ const Home: NextPage = () => {
                 <FeatureCard icon={<FeatureIcon><FaFileAlt className="w-6 h-6 text-red-400" /></FeatureIcon>} title="CFDI: sandbox primero" description="Flujo PAC inicia en sandbox; producción se habilita después. Timbrado integrado a futuro." />
                 <FeatureCard icon={<FeatureIcon><FaCheckSquare className="w-6 h-6 text-indigo-400" /></FeatureIcon>} title="Aprobaciones públicas" description="Ruta pública expuesta por Cloudflare Tunnel para aprobar cotizaciones/trabajos." />
                 <FeatureCard icon={<FeatureIcon><FaCommentDots className="w-6 h-6 text-teal-400" /></FeatureIcon>} title="Compartir por WhatsApp" description="Compartir comprobantes por WhatsApp (gratis). SMTP opcional para correo." />
-                <FeatureCard icon={<FeatureIcon><FaLayerGroup className="w-6 h-6 text-pink-400" /></FeatureIcon>} title="Stack moderno" description="Next.js + FastAPI + PostgreSQL + Redis + MinIO. Modular, escalable y auditable." />
+                <FeatureCard icon={<FeatureIcon><FaLayerGroup className="w-6 h-6 text-pink-400" /></FeatureIcon>} title="Stack moderno" description="Next.js hoy; FastAPI + PostgreSQL + Redis + MinIO (roadmap). Modular y escalable." />
               </div>
             </div>
           </section>
@@ -153,11 +271,11 @@ const Home: NextPage = () => {
             <div className="container mx-auto px-6 text-center">
               <h2 className="text-3xl md:text-4xl font-bold">Arquitectura y Stack Modular</h2>
               <p className="mt-4 text-gray-400 max-w-3xl mx-auto">
-                Frontend Next.js (PWA) + API en FastAPI con PostgreSQL, Redis y MinIO. Envío por WhatsApp gratis; SMTP opcional. Rutas públicas de aprobación detrás de Cloudflare Tunnel.
+                Hoy: Frontend Next.js. Plan: API en FastAPI con PostgreSQL, Redis y MinIO. Envío por WhatsApp gratis; SMTP opcional. Rutas públicas de aprobación detrás de Cloudflare Tunnel.
               </p>
               <div className="mt-8 flex flex-wrap justify-center gap-3 text-sm">
                 {['Next.js (App Router)', 'FastAPI', 'PostgreSQL', 'Redis / MinIO', 'On‑prem (Docker)', 'LAN‑first', 'WhatsApp/SMTP', 'CFDI sandbox', 'Aprobaciones', 'QR devices'].map(tech => (
-                    <span key={tech} className="bg-gray-800 text-gray-300 px-4 py-2 rounded-full border border-gray-700">{tech}</span>
+                    <Badge key={tech} variant="outline" className="bg-gray-800/50 border-gray-700 text-gray-300">{tech}</Badge>
                 ))}
               </div>
             </div>
@@ -186,12 +304,12 @@ const Home: NextPage = () => {
                 Despliega en tu host con Docker, comparte por WhatsApp y cobra con confianza incluso cuando falle Internet.
               </p>
               <div className="mt-8 flex justify-center items-center space-x-4">
-                <button className="px-8 py-3 font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-transform hover:scale-105 shadow-lg shadow-blue-600/20">
+                <Button size="lg">
                   Crear mi espacio
-                </button>
-                <button className="px-8 py-3 font-bold text-gray-300 bg-gray-800 rounded-lg hover:bg-gray-700 transition">
+                </Button>
+                <Button variant="secondary" size="lg">
                   Guía de despliegue
-                </button>
+                </Button>
               </div>
             </div>
           </section>
@@ -203,8 +321,12 @@ const Home: NextPage = () => {
             <div className="flex flex-col md:flex-row justify-between items-center text-sm">
               <p className="text-gray-400">&copy; {new Date().getFullYear()} Nexora</p>
               <div className="flex mt-4 md:mt-0 space-x-6">
-                <a href="#" className="text-gray-400 hover:text-white">Privacidad</a>
-                <a href="#" className="text-gray-400 hover:text-white">Términos</a>
+                <Button asChild variant="link" className="text-gray-400 hover:text-white">
+                  <a href="#">Privacidad</a>
+                </Button>
+                <Button asChild variant="link" className="text-gray-400 hover:text-white">
+                  <a href="#">Términos</a>
+                </Button>
               </div>
             </div>
           </div>

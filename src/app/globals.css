@@ -1,10 +1,20 @@
 @import "tailwindcss";
+@plugin "tailwindcss-animate";
 
 :root {
   --brand-orange: #F97316;
   --brand-blue: #2563EB;
   --background: #ffffff;
   --foreground: #0f172a;
+  /* shadcn tokens */
+  --primary: #2563EB;
+  --primary-foreground: #ffffff;
+  --secondary: #374151; /* gray-700 */
+  --secondary-foreground: #e5e7eb; /* gray-200 */
+  --accent: #1f2937; /* gray-800 */
+  --accent-foreground: #e5e7eb; /* gray-200 */
+  --ring: #60a5fa; /* sky-400 */
+  --input: #374151; /* gray-700 */
 }
 
 @theme inline {
@@ -12,6 +22,15 @@
   --color-foreground: var(--foreground);
   --font-sans: ui-sans-serif;
   --font-mono: ui-monospace;
+  /* shadcn color mappings */
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
 }
 
 html { scroll-behavior: smooth; }

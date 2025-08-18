@@ -1,14 +1,31 @@
 # Nexora POS — README (Local‑first + Portal)
 
-Este README consolida **todo lo acordado** para levantar el POS local con PWA y conectarlo con el **portal Nexora** para suscripciones, instalación y aprobación externa.
+## Funcionamiento local y requerimientos online
 
-> **Stack**: Frontend **Next.js (PWA)** · Backend **FastAPI** · **PostgreSQL** · **Redis** · **MinIO** · **Cloudflared** (túnel)
->
-> **Dominio (actual)**: bajo `grappepie.com`
->
-> - **Landing**: `https://nexora.grappepie.com`
-> - **Portal** (login/suscripciones): `https://app.nexora.grappepie.com`
-> - **Aprobación externa** (solo `/approve/*`): `https://aprobar.nexora.grappepie.com`
+Nexora POS está diseñado para operar completamente en la red local (LAN), permitiendo la provisión, operación y conexión de dispositivos sin necesidad de Internet. La **única función que requiere acceso online** es la verificación y renovación de la licencia. Si la licencia expira y no puede renovarse online, el sistema entra en modo limitado tras el periodo de gracia.
+
+## Descripción general
+Nexora POS es un sistema de punto de venta local-first con portal web, diseñado para operar tanto en modo offline como online, permitiendo la gestión eficiente de ventas y operaciones desde una máquina principal y dispositivos móviles conectados.
+
+## Instalación y despliegue
+Para instalar y desplegar Nexora POS en la máquina principal, sigue las instrucciones detalladas en [docs/INSTALL.md](docs/INSTALL.md).
+
+## Portal y autenticación
+El portal web permite la administración centralizada del sistema. La autenticación garantiza el acceso seguro de los usuarios. Consulta:
+- [docs/PORTAL.md](docs/PORTAL.md) — Detalles del portal web
+- [docs/SECURITY.md](docs/SECURITY.md) — Seguridad y autenticación
+
+## Conexión de dispositivos móviles (QR)
+Puedes conectar celulares y tablets al sistema principal mediante códigos QR, facilitando el acceso y la operación remota. Revisa la documentación técnica para detalles de implementación.
+
+## Documentación adicional
+- [docs/API_REFERENCE.md](docs/API_REFERENCE.md) — Referencia de API
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — Arquitectura
+- [docs/DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md) — Esquema de base de datos
+- [docs/OPERATIONS.md](docs/OPERATIONS.md) — Operaciones y administración
+- [docs/FAQ.md](docs/FAQ.md) — Preguntas frecuentes
+
+Para información más específica, consulta los archivos en la carpeta docs.
 
 ---
 

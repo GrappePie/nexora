@@ -1,3 +1,7 @@
+## Funcionamiento local y rol del portal
+
+El portal Nexora solo es necesario para la gestión de licencias, suscripciones y administración de usuarios/dispositivos. La provisión y operación diaria del sistema Nexora POS se realiza en la red local (LAN), sin requerir acceso al portal ni conexión a Internet, salvo para la verificación y renovación de la licencia.
+
 ## Dominios
 
 - **Landing**: `https://nexora.grappepie.com`
