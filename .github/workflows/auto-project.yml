@@ -27,20 +27,17 @@ jobs:
         with:
           github-token: ${{ secrets.GH_PAT }}   # PAT classic con scopes: repo, project
           script: |
-            // Helpers
             function low(s){ return (s || "").toString().toLowerCase(); }
             function notNull(x){ return x !== null && x !== undefined; }
 
             const owner = process.env.PROJECT_OWNER;
             const projectNumber = parseInt(process.env.PROJECT_NUMBER, 10);
 
-            // issue number (event or manual)
             const isManual = context.eventName === "workflow_dispatch";
             const manualIssue = isManual ? Number(core.getInput("issue_number")) : null;
             const issueNumber = isManual ? manualIssue : (context.payload.issue ? context.payload.issue.number : null);
             if (!issueNumber) { core.info("No issue number"); return; }
 
-            // Get Project ID (user, then org)
             async function getUserProjectId(login, number){
               const q = "query($login:String!, $n:Int!){ user(login:$login){ projectV2(number:$n){ id } } }";
               const r = await github.graphql(q, { login, n: number });
@@ -56,14 +53,12 @@ jobs:
             if (!projectId) { projectId = await getOrgProjectId(owner, projectNumber); }
             if (!projectId) { core.setFailed("ProjectV2 no encontrado para " + owner + " #" + projectNumber); return; }
 
-            // Fresh issue view and node_id
             const issueView = await github.rest.issues.get({
               owner: context.repo.owner, repo: context.repo.repo, issue_number: issueNumber
             });
             const issueNodeId = issueView.data && issueView.data.node_id ? issueView.data.node_id : null;
             if (!issueNodeId) { core.setFailed("No se pudo resolver issue node_id"); return; }
 
-            // List all items with pagination (100 max/page)
             async function listAllIssueItems(projectId){
               let hasNext = true, cursor = null;
               const rows = [];
@@ -87,7 +82,6 @@ jobs:
             let found = all.find(x => x.contentId === issueNodeId);
             let itemId = found ? found.itemId : null;
 
-            // Add item if missing
             if (!itemId) {
               const addRes = await github.graphql(
                 "mutation($projectId:ID!, $contentId:ID!){ addProjectV2ItemById(input:{projectId:$projectId, contentId:$contentId}){ item{ id } } }",
@@ -100,30 +94,26 @@ jobs:
             }
             if (!itemId) { core.setFailed("No se pudo obtener itemId"); return; }
 
-            // Fetch fields via ProjectV2FieldConfiguration.field
+            // -------- FIX: consulta correcta de campos (solo fragmentos sobre el union) --------
             const fieldsRes = await github.graphql(
-              "query($pid:ID!){ node(id:$pid){ ... on ProjectV2 { fields(first:50){ nodes{ field{ __typename id name ... on ProjectV2SingleSelectField { options { id name } } ... on ProjectV2FieldCommon { id name } } } } } } }",
+              "query($pid:ID!){ node(id:$pid){ ... on ProjectV2 { fields(first:50){ nodes{ __typename " +
+              "... on ProjectV2SingleSelectField { id name options { id name } } " +
+              "... on ProjectV2FieldCommon { id name } " +
+              "} } } } }",
               { pid: projectId }
             );
-            const fieldConfs = (((fieldsRes || {}).node || {}).fields || {}).nodes || [];
-            const fieldNodes = fieldConfs.map(fc => fc && fc.field ? fc.field : null).filter(notNull);
+            const fieldNodes = ((((fieldsRes || {}).node || {}).fields || {}).nodes || []).filter(notNull);
 
-            function findFieldByName(name){
+            function byName(name){
               const tgt = low(name);
               for (const f of fieldNodes) { if (f && f.name && low(f.name) === tgt) return f; }
               return null;
             }
-            function findSelect(name){
-              const f = findFieldByName(name);
-              return (f && f.options) ? f : null; // SingleSelect only
-            }
+            // Single-selects que nos interesan
+            const priorityField = byName("Priority") && fieldNodes.find(f => f.name && low(f.name) === "priority" && f.options);
+            const typeField     = byName("Type")     && fieldNodes.find(f => f.name && low(f.name) === "type"     && f.options);
+            const areaField     = byName("Area")     && fieldNodes.find(f => f.name && low(f.name) === "area"     && f.options);
 
-            const priorityField = findSelect("Priority");
-            const typeField     = findSelect("Type");
-            const areaField     = findSelect("Area");
-            const statusField   = findSelect("Status");  // si existe como single-select
-
-            // Labels -> lower
             const labels = (issueView.data.labels || []).map(l => {
               if (typeof l === "string") return low(l);
               if (l && l.name) return low(l.name);
@@ -136,17 +126,16 @@ jobs:
               return null;
             }
 
-            // Priority from labels priority:*
             let prioId = null;
             for (const p of ["priority:high","priority:medium","priority:low"]) {
               if (labels.indexOf(p) !== -1) { prioId = optionIdByName(priorityField, p.split(":")[1]); break; }
             }
-            // Type from labels type:*
+
             let typeId = null;
             for (const t of ["type:epic","type:story","type:task"]) {
               if (labels.indexOf(t) !== -1) { typeId = optionIdByName(typeField, t.split(":")[1]); break; }
             }
-            // Area: first matching label
+
             let areaId = null;
             if (areaField && areaField.options) {
               for (const o of areaField.options) {
@@ -162,17 +151,20 @@ jobs:
               );
             }
 
-            // Apply fields
             await setSingleSelect(priorityField, prioId);
             await setSingleSelect(typeField,     typeId);
             await setSingleSelect(areaField,     areaId);
 
-            // If issue closed -> Status Done (if present)
-            if (!isManual && context.payload.action === "closed" && statusField && statusField.options) {
-              const doneOpt = statusField.options.find(o => o && o.name && low(o.name) === "done");
-              if (doneOpt) {
-                await setSingleSelect(statusField, doneOpt.id);
-                core.info("Status => Done");
+            // Status => Done al cerrar (si tu Status es single-select y tiene "Done")
+            const wasClosed = !isManual && context.payload.action === "closed";
+            if (wasClosed) {
+              const statusField = byName("Status") && fieldNodes.find(f => f.name && low(f.name) === "status" && f.options);
+              if (statusField && statusField.options) {
+                const doneOpt = statusField.options.find(o => o && o.name && low(o.name) === "done");
+                if (doneOpt) {
+                  await setSingleSelect(statusField, doneOpt.id);
+                  core.info("Status => Done");
+                }
               }
             }
 
