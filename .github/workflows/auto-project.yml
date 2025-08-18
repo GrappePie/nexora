@@ -15,8 +15,8 @@ permissions:
   issues: write
 
 env:
-  PROJECT_OWNER: GrappePie     # dueño del Project (usuario u organizacion)
-  PROJECT_NUMBER: "1"          # numero del Project v2 (el de la URL)
+  PROJECT_OWNER: GrappePie
+  PROJECT_NUMBER: "1"
 
 jobs:
   sync-project:
@@ -27,20 +27,20 @@ jobs:
         with:
           github-token: ${{ secrets.GH_PAT }}   # PAT classic con scopes: repo, project
           script: |
-            // Helpers basicos (ASCII)
+            // Helpers
             function low(s){ return (s || "").toString().toLowerCase(); }
             function notNull(x){ return x !== null && x !== undefined; }
 
             const owner = process.env.PROJECT_OWNER;
             const projectNumber = parseInt(process.env.PROJECT_NUMBER, 10);
 
-            // Soporta ejecucion manual
+            // issue number (event or manual)
             const isManual = context.eventName === "workflow_dispatch";
             const manualIssue = isManual ? Number(core.getInput("issue_number")) : null;
             const issueNumber = isManual ? manualIssue : (context.payload.issue ? context.payload.issue.number : null);
             if (!issueNumber) { core.info("No issue number"); return; }
 
-            // Obtener Project v2 ID (primero user, luego org) en dos consultas separadas
+            // Get Project ID (user, then org)
             async function getUserProjectId(login, number){
               const q = "query($login:String!, $n:Int!){ user(login:$login){ projectV2(number:$n){ id } } }";
               const r = await github.graphql(q, { login, n: number });
@@ -56,41 +56,38 @@ jobs:
             if (!projectId) { projectId = await getOrgProjectId(owner, projectNumber); }
             if (!projectId) { core.setFailed("ProjectV2 no encontrado para " + owner + " #" + projectNumber); return; }
 
-            // Datos frescos del issue y node_id
+            // Fresh issue view and node_id
             const issueView = await github.rest.issues.get({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: issueNumber
+              owner: context.repo.owner, repo: context.repo.repo, issue_number: issueNumber
             });
             const issueNodeId = issueView.data && issueView.data.node_id ? issueView.data.node_id : null;
             if (!issueNodeId) { core.setFailed("No se pudo resolver issue node_id"); return; }
 
-            // Listar todos los items del project con paginacion (100 max por pagina)
+            // List all items with pagination (100 max/page)
             async function listAllIssueItems(projectId){
-              let hasNextPage = true;
-              let cursor = null;
+              let hasNext = true, cursor = null;
               const rows = [];
-              while (hasNextPage) {
+              while (hasNext) {
                 const q = "query($pid:ID!, $after:String){ node(id:$pid){ ... on ProjectV2 { items(first:100, after:$after){ pageInfo{ hasNextPage endCursor } nodes{ id content{ __typename ... on Issue { id number } } } } } } }";
                 const r = await github.graphql(q, { pid: projectId, after: cursor });
                 const items = (((r || {}).node || {}).items || {});
                 const nodes = items.nodes || [];
                 for (const n of nodes) {
                   if (n && n.content && n.content.__typename === "Issue" && n.content.id) {
-                    rows.push({ itemId: n.id, issueContentId: n.content.id, number: n.content.number });
+                    rows.push({ itemId: n.id, contentId: n.content.id, number: n.content.number });
                   }
                 }
-                hasNextPage = items.pageInfo && items.pageInfo.hasNextPage ? true : false;
+                hasNext = items.pageInfo && items.pageInfo.hasNextPage ? true : false;
                 cursor = items.pageInfo ? items.pageInfo.endCursor : null;
               }
               return rows;
             }
 
             const all = await listAllIssueItems(projectId);
-            let item = all.find(x => x.issueContentId === issueNodeId);
-            let itemId = item ? item.itemId : null;
+            let found = all.find(x => x.contentId === issueNodeId);
+            let itemId = found ? found.itemId : null;
 
-            // Agregar al Project si falta
+            // Add item if missing
             if (!itemId) {
               const addRes = await github.graphql(
                 "mutation($projectId:ID!, $contentId:ID!){ addProjectV2ItemById(input:{projectId:$projectId, contentId:$contentId}){ item{ id } } }",
@@ -103,27 +100,30 @@ jobs:
             }
             if (!itemId) { core.setFailed("No se pudo obtener itemId"); return; }
 
-            // Obtener campos y opciones (Priority, Type, Area, Status)
+            // Fetch fields via ProjectV2FieldConfiguration.field
             const fieldsRes = await github.graphql(
-              "query($pid:ID!){ node(id:$pid){ ... on ProjectV2 { fields(first:50){ nodes{ __typename id name ... on ProjectV2SingleSelectField { options { id name } } } } } } }",
+              "query($pid:ID!){ node(id:$pid){ ... on ProjectV2 { fields(first:50){ nodes{ field{ __typename id name ... on ProjectV2SingleSelectField { options { id name } } ... on ProjectV2FieldCommon { id name } } } } } } }",
               { pid: projectId }
             );
-            const fieldNodes = (((fieldsRes || {}).node || {}).fields || {}).nodes || [];
+            const fieldConfs = (((fieldsRes || {}).node || {}).fields || {}).nodes || [];
+            const fieldNodes = fieldConfs.map(fc => fc && fc.field ? fc.field : null).filter(notNull);
+
             function findFieldByName(name){
-              const target = low(name);
-              for (const f of fieldNodes) { if (f && f.name && low(f.name) === target) return f; }
+              const tgt = low(name);
+              for (const f of fieldNodes) { if (f && f.name && low(f.name) === tgt) return f; }
               return null;
             }
             function findSelect(name){
               const f = findFieldByName(name);
-              return (f && f.options) ? f : null;
+              return (f && f.options) ? f : null; // SingleSelect only
             }
+
             const priorityField = findSelect("Priority");
             const typeField     = findSelect("Type");
             const areaField     = findSelect("Area");
-            const statusField   = findSelect("Status");  // suele ser SINGLE_SELECT en Projects v2 por defecto
+            const statusField   = findSelect("Status");  // si existe como single-select
 
-            // Labels del issue (minusc)
+            // Labels -> lower
             const labels = (issueView.data.labels || []).map(l => {
               if (typeof l === "string") return low(l);
               if (l && l.name) return low(l.name);
@@ -136,22 +136,21 @@ jobs:
               return null;
             }
 
-            // Mapear Priority desde labels priority:*
+            // Priority from labels priority:*
             let prioId = null;
             for (const p of ["priority:high","priority:medium","priority:low"]) {
               if (labels.indexOf(p) !== -1) { prioId = optionIdByName(priorityField, p.split(":")[1]); break; }
             }
-            // Mapear Type desde labels type:*
+            // Type from labels type:*
             let typeId = null;
             for (const t of ["type:epic","type:story","type:task"]) {
               if (labels.indexOf(t) !== -1) { typeId = optionIdByName(typeField, t.split(":")[1]); break; }
             }
-            // Mapear Area: primer label que coincida con una opcion de Area
+            // Area: first matching label
             let areaId = null;
             if (areaField && areaField.options) {
               for (const o of areaField.options) {
-                const nm = low(o.name);
-                if (labels.indexOf(nm) !== -1) { areaId = o.id; break; }
+                if (labels.indexOf(low(o.name)) !== -1) { areaId = o.id; break; }
               }
             }
 
@@ -163,12 +162,12 @@ jobs:
               );
             }
 
-            // Aplicar Priority/Type/Area si hay label y opcion
+            // Apply fields
             await setSingleSelect(priorityField, prioId);
             await setSingleSelect(typeField,     typeId);
             await setSingleSelect(areaField,     areaId);
 
-            // Si el issue fue cerrado, intenta poner Status=Done (si existe esa opcion)
+            // If issue closed -> Status Done (if present)
             if (!isManual && context.payload.action === "closed" && statusField && statusField.options) {
               const doneOpt = statusField.options.find(o => o && o.name && low(o.name) === "done");
               if (doneOpt) {
