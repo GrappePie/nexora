@@ -31,3 +31,14 @@ def test_generate_cfdi(tmp_path, monkeypatch):
     assert data["status"] == "generated"
     assert data["xml_url"].startswith("file://")
     assert data["pdf_url"].startswith("file://")
+
+    cfdi_uuid = data["uuid"]
+    resp_xml = client.get(f"/cfdi/{cfdi_uuid}?file=xml", headers=headers)
+    assert resp_xml.status_code == 200
+    assert resp_xml.headers["content-type"] == "application/xml"
+    assert b"<?xml" in resp_xml.content
+
+    resp_pdf = client.get(f"/cfdi/{cfdi_uuid}?file=pdf", headers=headers)
+    assert resp_pdf.status_code == 200
+    assert resp_pdf.headers["content-type"] == "application/pdf"
+    assert resp_pdf.content.startswith(b"%PDF")
