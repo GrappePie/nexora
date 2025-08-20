@@ -222,3 +222,8 @@ def test_rate_limit_on_check_and_confirm():
     assert last2 is not None
     assert last2.status_code == 429
     assert last2.json().get("detail") == "rate_limited"
+
+
+def test_create_quote_missing_fields_returns_422():
+    r = client.post("/quotes/", json={"total": 10})
+    assert r.status_code == 422
