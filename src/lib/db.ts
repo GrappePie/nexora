@@ -1,10 +1,15 @@
 const DB_NAME = 'nexora-db';
-const STORE_NAME = 'operations';
+const STORE_NAME = 'queue';
 
-type Operation = unknown;
+export interface QueueItem {
+  id?: number;
+  type: string;
+  payload: unknown;
+  retry?: number;
+}
 
 type SyncCapableRegistration = ServiceWorkerRegistration & {
-  sync?: { register: (tag: string) => Promise<void> }
+  sync?: { register: (tag: string) => Promise<void> };
 };
 
 function openDB(): Promise<IDBDatabase> {
@@ -13,7 +18,7 @@ function openDB(): Promise<IDBDatabase> {
     request.onupgradeneeded = () => {
       const db = request.result;
       if (!db.objectStoreNames.contains(STORE_NAME)) {
-        db.createObjectStore(STORE_NAME, { autoIncrement: true });
+        db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
       }
     };
     request.onsuccess = () => resolve(request.result);
@@ -21,10 +26,10 @@ function openDB(): Promise<IDBDatabase> {
   });
 }
 
-export async function saveOperation(operation: Operation): Promise<void> {
+export async function enqueueOperation(type: string, payload: unknown): Promise<void> {
   const db = await openDB();
   const tx = db.transaction(STORE_NAME, 'readwrite');
-  tx.objectStore(STORE_NAME).add(operation);
+  tx.objectStore(STORE_NAME).add({ type, payload, retry: 0 });
   await new Promise<void>((resolve, reject) => {
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
@@ -32,29 +37,31 @@ export async function saveOperation(operation: Operation): Promise<void> {
   if ('serviceWorker' in navigator && 'SyncManager' in window) {
     const registration = (await navigator.serviceWorker.ready) as SyncCapableRegistration;
     try {
-      await registration.sync?.register('sync-operations');
+      await registration.sync?.register(`sync-${type}`);
     } catch {
       // ignore
     }
   }
 }
 
-export async function getAllOperations(): Promise<Operation[]> {
+export async function getQueue(type: string): Promise<QueueItem[]> {
   const db = await openDB();
   const tx = db.transaction(STORE_NAME, 'readonly');
   const req = tx.objectStore(STORE_NAME).getAll();
-  return new Promise((resolve, reject) => {
-    req.onsuccess = () => resolve(req.result as Operation[]);
+  const all = await new Promise<QueueItem[]>((resolve, reject) => {
+    req.onsuccess = () => resolve(req.result as QueueItem[]);
     req.onerror = () => reject(req.error);
   });
+  return all.filter(item => item.type === type);
 }
 
-export async function clearOperations(): Promise<void> {
+export async function clearQueue(): Promise<void> {
   const db = await openDB();
   const tx = db.transaction(STORE_NAME, 'readwrite');
   tx.objectStore(STORE_NAME).clear();
-  return new Promise((resolve, reject) => {
+  await new Promise<void>((resolve, reject) => {
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });
 }
+
