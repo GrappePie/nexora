@@ -2,8 +2,14 @@
 
 import React from "react";
 import { Building, KeyRound } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { hasRole } from "@/lib/utils";
 
 export default function ConfiguracionView() {
+  const { data } = useSession();
+  if (!hasRole(data?.roles, "admin")) {
+    return <div>Acceso denegado</div>;
+  }
   return (
     <div className="p-4 md:p-6 space-y-4">
       <div className="rounded-2xl border bg-white p-4">

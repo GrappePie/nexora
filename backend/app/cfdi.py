@@ -1,8 +1,9 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from uuid import uuid4
 
 from .storage import upload_bytes
+from .auth import require_roles
 
 router = APIRouter(prefix="/cfdi", tags=["cfdi"])
 
@@ -26,7 +27,10 @@ class CfdiResponse(BaseModel):
 
 
 @router.post("/", response_model=CfdiResponse)
-def generate_cfdi(payload: CfdiRequest) -> CfdiResponse:
+def generate_cfdi(
+    payload: CfdiRequest,
+    claims: dict = Depends(require_roles(["admin"])),
+) -> CfdiResponse:
     uuid = uuid4().hex
     total = sum(i.quantity * i.unit_price for i in payload.items)
     items_xml = "".join(
