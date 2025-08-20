@@ -1,6 +1,8 @@
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, Depends
 from pydantic import BaseModel
 from typing import Literal
+
+from .auth import require_roles
 
 
 router = APIRouter(prefix="/portal/api/billing", tags=["billing"])
@@ -19,7 +21,10 @@ class SubscriptionResponse(BaseModel):
 
 
 @router.post("/subscribe", response_model=SubscriptionResponse)
-def subscribe(payload: SubscriptionRequest):
+def subscribe(
+    payload: SubscriptionRequest,
+    claims: dict = Depends(require_roles(["admin"])),
+):
     """Crea una suscripción para el cliente indicado."""
     return SubscriptionResponse(
         customer_id=payload.customer_id,
@@ -29,7 +34,10 @@ def subscribe(payload: SubscriptionRequest):
 
 
 @router.post("/cancel", response_model=SubscriptionResponse)
-def cancel(payload: SubscriptionRequest):
+def cancel(
+    payload: SubscriptionRequest,
+    claims: dict = Depends(require_roles(["admin"])),
+):
     """Cancela la suscripción del cliente."""
     return SubscriptionResponse(
         customer_id=payload.customer_id,

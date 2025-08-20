@@ -2,8 +2,9 @@ from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException, Depends
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, EmailStr
-from jose import jwt
+from jose import jwt, JWTError
 from sqlalchemy.orm import Session
 from sqlalchemy import select, func
 from .db import get_db
@@ -28,6 +29,28 @@ class LoginResponse(BaseModel):
 
 def verify_password(password: str, hashed: str) -> bool:
     return hashlib.sha256(password.encode()).hexdigest() == hashed
+
+
+bearer = HTTPBearer(auto_error=False)
+
+
+def require_roles(required: list[str]):
+    """Dependency factory that ensures JWT contains at least one of the required roles."""
+
+    def _verify(credentials: HTTPAuthorizationCredentials = Depends(bearer)):
+        if not credentials:
+            raise HTTPException(status_code=401, detail="unauthorized")
+        token = credentials.credentials
+        try:
+            claims = jwt.decode(token, SECRET, algorithms=[ALGO])
+        except JWTError:
+            raise HTTPException(status_code=401, detail="invalid_token")
+        roles = claims.get("roles", [])
+        if not any(r in roles for r in required):
+            raise HTTPException(status_code=403, detail="forbidden")
+        return claims
+
+    return _verify
 
 
 @router.post("/login", response_model=LoginResponse)
