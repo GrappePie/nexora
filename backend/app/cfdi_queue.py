@@ -25,6 +25,8 @@ except Exception:  # pragma: no cover
 
 _local_queue: list[str] = []
 
+MAX_ATTEMPTS = int(os.getenv("CFDI_MAX_ATTEMPTS", "5"))
+
 
 def _get_redis():
     url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
@@ -105,9 +107,23 @@ def process_cfdi_queue(db: Session, limit: int = 10) -> int:
             processed += 1
         except Exception as exc:  # pragma: no cover
             pending.last_error = str(exc)
-            db.add(pending)
-            db.commit()
-            delay = min(60, 2 ** pending.attempts)
-            time.sleep(delay)
-            _enqueue(job)
+            if pending.attempts >= MAX_ATTEMPTS:
+                pending.status = "failed"
+                logger.error(
+                    "cfdi %s failed after %s attempts", pending.id, pending.attempts
+                )
+                db.add(pending)
+                db.commit()
+            else:
+                logger.warning(
+                    "cfdi %s attempt %s failed: %s",
+                    pending.id,
+                    pending.attempts,
+                    exc,
+                )
+                db.add(pending)
+                db.commit()
+                delay = min(60, 2 ** pending.attempts)
+                time.sleep(delay)
+                _enqueue(job)
     return processed

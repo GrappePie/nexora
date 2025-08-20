@@ -10,6 +10,10 @@ Timbrar **en sandbox** para validar flujo: cotización → factura → XML/PDF.
 PAC_PROVIDER=sandbox
 PAC_USER=demo
 PAC_PASS=demo
+# Redis opcional para cola (usa fakeredis si está ausente)
+REDIS_URL=redis://localhost:6379/0
+# Límite de reintentos antes de marcar `failed`
+CFDI_MAX_ATTEMPTS=5
 ```
 
 ## Flujo
@@ -21,7 +25,28 @@ PAC_PASS=demo
 3. **Timbrado sandbox** (`POST /cfdi/process-pending`)
     - Procesa la cola, genera XML/PDF y crea `cfdi_documents`.
 4. **Reintentos**
-    - Backoff exponencial, estados `pending` → `sent`.
+    - Backoff exponencial (`2^n` segundos, máx 60) y hasta `CFDI_MAX_ATTEMPTS`.
+    - Estados: `pending` → `sent` o `failed`.
+
+### Ejemplos
+
+```bash
+# Configurar RFC/proveedor
+curl -X POST http://localhost:8000/cfdi/config \
+  -H 'content-type: application/json' \
+  -d '{"rfc":"XAXX010101000","provider":"sandbox"}'
+
+# Generar CFDI inmediato
+curl -X POST http://localhost:8000/cfdi/ \
+  -H 'content-type: application/json' \
+  -d '{"customer":"ACME","items":[{"description":"Servicio","quantity":1,"unit_price":100}]}'
+
+# Procesar pendientes (cola)
+curl -X POST http://localhost:8000/cfdi/process-pending
+
+# Descargar XML
+curl -L http://localhost:8000/cfdi/<UUID>?file=xml
+```
 
 ## RFCs y pruebas
 

@@ -138,24 +138,27 @@ def generate_cfdi(
     claims: dict = Depends(require_roles(["admin"])),
 ) -> CfdiResponse:
     logger.info("generate cfdi for %s", payload.customer)
-    uuid = uuid4().hex
-    total = sum(i.quantity * i.unit_price for i in payload.items)
-    xml_content = _build_xml(uuid, payload.customer, payload.items, total)
-    pdf_content = _build_pdf(uuid, payload.customer, total)
-    xml_url = upload_bytes(f"cfdi/{uuid}.xml", xml_content, "application/xml")
-    pdf_url = upload_bytes(f"cfdi/{uuid}.pdf", pdf_content, "application/pdf")
+    try:
+        uuid = uuid4().hex
+        total = sum(i.quantity * i.unit_price for i in payload.items)
+        xml_content = _build_xml(uuid, payload.customer, payload.items, total)
+        pdf_content = _build_pdf(uuid, payload.customer, total)
+        xml_url = upload_bytes(f"cfdi/{uuid}.xml", xml_content, "application/xml")
+        pdf_url = upload_bytes(f"cfdi/{uuid}.pdf", pdf_content, "application/pdf")
 
-    row = CfdiDocumentORM(
-        uuid=uuid,
-        customer=payload.customer,
-        total=total,
-        xml_url=xml_url,
-        pdf_url=pdf_url,
-    )
-    db.add(row)
-    db.commit()
-
-    return CfdiResponse(uuid=uuid, xml_url=xml_url, pdf_url=pdf_url)
+        row = CfdiDocumentORM(
+            uuid=uuid,
+            customer=payload.customer,
+            total=total,
+            xml_url=xml_url,
+            pdf_url=pdf_url,
+        )
+        db.add(row)
+        db.commit()
+        return CfdiResponse(uuid=uuid, xml_url=xml_url, pdf_url=pdf_url)
+    except Exception as exc:  # pragma: no cover
+        logger.exception("cfdi generation failed: %s", exc)
+        raise HTTPException(status_code=502, detail="cfdi_generation_failed")
 
 
 @router.get("/{cfdi_uuid}")
@@ -172,7 +175,13 @@ def download_cfdi(
     url = row.xml_url if file == "xml" else row.pdf_url
     media_type = "application/xml" if file == "xml" else "application/pdf"
     filename = f"{cfdi_uuid}.{file}"
-    return _serve_url(url, filename, media_type)
+    try:
+        return _serve_url(url, filename, media_type)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="file_not_found")
+    except Exception as exc:  # pragma: no cover
+        logger.exception("error serving cfdi %s: %s", cfdi_uuid, exc)
+        raise HTTPException(status_code=500, detail="cfdi_unavailable")
 
 
 @router.post("/process-pending", response_model=dict)
@@ -182,6 +191,9 @@ def process_pending_cfdi(
     claims: dict = Depends(require_roles(["admin"])),
 ):
     from .cfdi_queue import process_cfdi_queue
-
-    processed = process_cfdi_queue(db, limit)
+    try:
+        processed = process_cfdi_queue(db, limit)
+    except Exception as exc:  # pragma: no cover
+        logger.exception("error processing cfdi queue: %s", exc)
+        raise HTTPException(status_code=500, detail="queue_error")
     return {"processed": processed}
