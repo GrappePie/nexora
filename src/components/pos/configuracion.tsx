@@ -5,9 +5,12 @@ import { Building, KeyRound } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { hasRole } from "@/lib/utils";
 
+interface SessionWithRoles { roles?: string[] }
+
 export default function ConfiguracionView() {
   const { data } = useSession();
-  if (!hasRole(data?.roles, "admin")) {
+  const roles = (data as unknown as SessionWithRoles | null)?.roles;
+  if (!hasRole(roles, "admin")) {
     return <div>Acceso denegado</div>;
   }
   return (
@@ -38,4 +41,3 @@ export default function ConfiguracionView() {
     </div>
   );
 }
-

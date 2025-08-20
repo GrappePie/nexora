@@ -69,9 +69,12 @@ function KpiCard({ title, value, foot }: { title: string; value: string; foot?: 
   );
 }
 
+interface SessionWithRoles { roles?: string[] }
+
 export default function Dashboard({ licenseState }: { licenseState: LicenseState }) {
   const { data } = useSession();
-  if (!hasRole(data?.roles, "admin")) {
+  const roles = (data as unknown as SessionWithRoles | null)?.roles;
+  if (!hasRole(roles, "admin")) {
     return <div>Acceso denegado</div>;
   }
   const lic = licenseBadge(licenseState);
@@ -187,4 +190,3 @@ export default function Dashboard({ licenseState }: { licenseState: LicenseState
     </div>
   );
 }
-
