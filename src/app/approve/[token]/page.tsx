@@ -26,7 +26,9 @@ function ApproveActions({ token, quoteId }: { token: string; quoteId: string }) 
         headers: { 'content-type': 'application/json', accept: 'application/json' },
         body: JSON.stringify({ token }),
       })
-      const data = await res.json().catch(() => ({} as any))
+      const data = (await res
+        .json()
+        .catch(() => ({} as Record<string, unknown>))) as Record<string, unknown>
       if (res.ok) {
         setOk(true)
         setMsg('Cotización aprobada correctamente.')
@@ -49,7 +51,7 @@ function ApproveActions({ token, quoteId }: { token: string; quoteId: string }) 
         setOk(false)
         setMsg('Error al aprobar. Intenta más tarde.')
       }
-    } catch (e) {
+    } catch {
       setOk(false)
       setMsg('No se pudo contactar al servicio.')
     } finally {
