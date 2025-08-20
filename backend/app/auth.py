@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 import logging
+import os
 import bcrypt
 
 from fastapi import APIRouter, HTTPException, Depends
@@ -14,8 +15,14 @@ from .db import get_db
 from .models import UserORM
 from .email import send_email
 
-SECRET = "dev_secret_change_me"
-ALGO = "HS256"
+SECRET = os.getenv("JWT_SECRET", "dev_secret_change_me")
+ALGO = os.getenv("JWT_ALGO", "HS256")
+
+ROLE_MATRIX: dict[str, str] = {
+    "admin": "Gestión completa y operaciones críticas",
+    "user": "Operaciones estándar en la PWA",
+    "viewer": "Acceso de solo lectura a paneles e informes",
+}
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 

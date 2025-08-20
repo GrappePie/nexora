@@ -44,6 +44,8 @@ Minimizar superficie expuesta, proteger datos y asegurar que el licenciamiento n
 
 La autenticación emite JWT con los roles del usuario. Estos roles se conservan en la sesión del portal.
 
+La matriz de roles se define en `backend/app/auth.py` como `ROLE_MATRIX`.
+
 | Rol   | Permisos principales                                |
 |-------|-----------------------------------------------------|
 | admin | Gestión completa y operaciones críticas             |

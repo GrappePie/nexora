@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from .db import get_db
 from .models import QuoteORM
+from .auth import require_roles
 
 # Rate limiter simple en memoria (clave -> deque de timestamps)
 _RATE_BUCKETS: dict[str, deque[float]] = {}
@@ -55,13 +56,20 @@ class ApproveCheckResponse(BaseModel):
     quote_id: str | None = None
 
 @router.get("/", response_model=list[Quote])
-def list_quotes(db: Session = Depends(get_db)):
+def list_quotes(
+    db: Session = Depends(get_db),
+    claims: dict = Depends(require_roles(["admin", "user"])),
+):
     logger.info("list quotes")
     rows = db.query(QuoteORM).all()
     return [Quote(id=r.id, customer=r.customer, total=r.total, status=r.status, token=r.token) for r in rows]
 
 @router.post("/", response_model=Quote)
-def create_quote(payload: QuoteCreate, db: Session = Depends(get_db)):
+def create_quote(
+    payload: QuoteCreate,
+    db: Session = Depends(get_db),
+    claims: dict = Depends(require_roles(["admin", "user"])),
+):
     logger.info("create quote for %s", payload.customer)
     row = QuoteORM(customer=payload.customer, total=payload.total)
     db.add(row)
@@ -113,7 +121,11 @@ def approve_confirm(payload: ApproveCheckRequest, db: Session = Depends(get_db))
     return Quote(id=row.id, customer=row.customer, total=row.total, status=row.status, token=row.token)
 
 @router.post("/{quote_id}/approve", response_model=Quote)
-def approve_quote(quote_id: str, db: Session = Depends(get_db)):
+def approve_quote(
+    quote_id: str,
+    db: Session = Depends(get_db),
+    claims: dict = Depends(require_roles(["admin"])),
+):
     logger.info("approve quote %s", quote_id)
     row = db.query(QuoteORM).filter(QuoteORM.id == quote_id).first()
     if not row:
@@ -129,7 +141,11 @@ def approve_quote(quote_id: str, db: Session = Depends(get_db)):
     return Quote(id=row.id, customer=row.customer, total=row.total, status=row.status, token=row.token)
 
 @router.post("/{quote_id}/reject", response_model=Quote)
-def reject_quote(quote_id: str, db: Session = Depends(get_db)):
+def reject_quote(
+    quote_id: str,
+    db: Session = Depends(get_db),
+    claims: dict = Depends(require_roles(["admin"])),
+):
     logger.info("reject quote %s", quote_id)
     row = db.query(QuoteORM).filter(QuoteORM.id == quote_id).first()
     if not row:
