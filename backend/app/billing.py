@@ -1,4 +1,6 @@
+import logging
 import os
+
 from fastapi import APIRouter, Request, Depends, HTTPException
 from pydantic import BaseModel
 from typing import Literal
@@ -9,6 +11,8 @@ from .db import get_db
 from .models import SubscriptionORM
 
 router = APIRouter(prefix="/portal/api/billing", tags=["billing"])
+
+logger = logging.getLogger(__name__)
 
 
 class SubscriptionRequest(BaseModel):
@@ -134,6 +138,7 @@ def subscribe(
     db: Session = Depends(get_db),
     claims: dict = Depends(require_roles(["admin"])),
 ):
+    logger.info("subscribe %s to %s", payload.customer_id, payload.plan_id)
     provider = get_billing_provider()
     ext_id = provider.create_subscription(payload.customer_id, payload.plan_id)
     sub = SubscriptionORM(
@@ -156,6 +161,7 @@ def cancel(
     db: Session = Depends(get_db),
     claims: dict = Depends(require_roles(["admin"])),
 ):
+    logger.info("cancel subscription %s for %s", payload.plan_id, payload.customer_id)
     sub = (
         db.query(SubscriptionORM)
         .filter_by(customer_id=payload.customer_id, plan_id=payload.plan_id)
@@ -174,6 +180,7 @@ def cancel(
 
 @router.post("/webhook")
 async def webhook(request: Request, db: Session = Depends(get_db)):
+    logger.info("billing webhook")
     provider = get_billing_provider()
     payload = await request.body()
     sig_header = (

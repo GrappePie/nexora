@@ -1,11 +1,13 @@
+import logging
+import time
+from collections import deque
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from .db import get_db
 from .models import QuoteORM
-from datetime import datetime, timezone
-from collections import deque
-import time
 
 # Rate limiter simple en memoria (clave -> deque de timestamps)
 _RATE_BUCKETS: dict[str, deque[float]] = {}
@@ -21,6 +23,8 @@ def _rate_allow(key: str, limit: int, window_seconds: int) -> bool:
     return True
 
 router = APIRouter(prefix="/quotes", tags=["quotes"])
+
+logger = logging.getLogger(__name__)
 
 # --- helpers ---
 
@@ -52,11 +56,13 @@ class ApproveCheckResponse(BaseModel):
 
 @router.get("/", response_model=list[Quote])
 def list_quotes(db: Session = Depends(get_db)):
+    logger.info("list quotes")
     rows = db.query(QuoteORM).all()
     return [Quote(id=r.id, customer=r.customer, total=r.total, status=r.status, token=r.token) for r in rows]
 
 @router.post("/", response_model=Quote)
 def create_quote(payload: QuoteCreate, db: Session = Depends(get_db)):
+    logger.info("create quote for %s", payload.customer)
     row = QuoteORM(customer=payload.customer, total=payload.total)
     db.add(row)
     db.commit()
@@ -66,6 +72,7 @@ def create_quote(payload: QuoteCreate, db: Session = Depends(get_db)):
 @router.post("/approve-check", response_model=ApproveCheckResponse)
 def approve_check(payload: ApproveCheckRequest, db: Session = Depends(get_db)):
     token = payload.token.strip()
+    logger.info("approve check %s", token)
     if not token:
         raise HTTPException(status_code=400, detail="token_required")
     if not _rate_allow(f"check:{token}", limit=10, window_seconds=60):
@@ -83,6 +90,7 @@ def approve_check(payload: ApproveCheckRequest, db: Session = Depends(get_db)):
 @router.post("/approve-confirm", response_model=Quote)
 def approve_confirm(payload: ApproveCheckRequest, db: Session = Depends(get_db)):
     token = payload.token.strip()
+    logger.info("approve confirm %s", token)
     if not token:
         raise HTTPException(status_code=400, detail="token_required")
     if not _rate_allow(f"confirm:{token}", limit=5, window_seconds=60):
@@ -106,6 +114,7 @@ def approve_confirm(payload: ApproveCheckRequest, db: Session = Depends(get_db))
 
 @router.post("/{quote_id}/approve", response_model=Quote)
 def approve_quote(quote_id: str, db: Session = Depends(get_db)):
+    logger.info("approve quote %s", quote_id)
     row = db.query(QuoteORM).filter(QuoteORM.id == quote_id).first()
     if not row:
         raise HTTPException(status_code=404, detail="quote_not_found")
@@ -121,6 +130,7 @@ def approve_quote(quote_id: str, db: Session = Depends(get_db)):
 
 @router.post("/{quote_id}/reject", response_model=Quote)
 def reject_quote(quote_id: str, db: Session = Depends(get_db)):
+    logger.info("reject quote %s", quote_id)
     row = db.query(QuoteORM).filter(QuoteORM.id == quote_id).first()
     if not row:
         raise HTTPException(status_code=404, detail="quote_not_found")
