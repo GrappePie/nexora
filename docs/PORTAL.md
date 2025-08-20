@@ -33,20 +33,20 @@ El portal Nexora solo es necesario para la gestión de licencias, suscripciones 
 ## Despliegue de facturación
 
 El backend del portal expone el módulo de facturación en `/portal/api/billing`.
-Antes de desplegar, asegúrate de definir las credenciales de los proveedores de
-pago.
+Antes de desplegar, define las credenciales del proveedor de pago
+seleccionado y la variable `BILLING_PROVIDER` (`stripe`, `mercadopago` o
+`paddle`).
 
 ### Variables de entorno
 
-- `STRIPE_API_KEY`: clave privada de Stripe.
-- `STRIPE_WEBHOOK_SECRET`: secreto para validar los webhooks de Stripe.
-- `MP_ACCESS_TOKEN`: token de acceso de Mercado Pago.
-- `MP_WEBHOOK_SECRET`: secreto para validar los webhooks de Mercado Pago.
+- `STRIPE_API_KEY` y `STRIPE_WEBHOOK_SECRET`.
+- `MERCADOPAGO_ACCESS_TOKEN` y `MERCADOPAGO_WEBHOOK_SECRET`.
+- `PADDLE_API_KEY` y `PADDLE_WEBHOOK_SECRET`.
 
 ### Webhooks
 
-Registra la URL `https://<tu-dominio>/portal/api/billing/webhook` en los
-paneles de Stripe y Mercado Pago para recibir notificaciones de pago.
+Registra la URL `https://<tu-dominio>/portal/api/billing/webhook` en el
+panel del proveedor seleccionado para recibir notificaciones de pago.
 
 ### Páginas de suscripción
 
@@ -55,6 +55,7 @@ La página usa el token de NextAuth para invocar la API del portal:
 
 - `POST /portal/api/billing/subscribe`
 - `POST /portal/api/billing/cancel`
+- `GET /portal/api/billing/subscription?customer_id=...&plan_id=...`
 
 #### Configuración
 

@@ -15,12 +15,32 @@ export default function BillingPage() {
 
   const [customerId, setCustomerId] = useState('')
   const [planId, setPlanId] = useState('')
-  const [message, setMessage] = useState('')
+  const [status, setStatus] = useState<string | null>(null)
+  const [error, setError] = useState('')
 
   const base = (process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000').replace(/\/$/, '')
 
+  async function fetchStatus() {
+    setError('')
+    const resp = await fetch(
+      `${base}/portal/api/billing/subscription?customer_id=${customerId}&plan_id=${planId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${session?.accessToken}`,
+        },
+      },
+    )
+    const data = await resp.json().catch(() => ({}))
+    if (resp.ok) {
+      setStatus(data.status)
+    } else {
+      setStatus(null)
+      setError(data.detail || 'Error')
+    }
+  }
+
   async function handle(action: 'subscribe' | 'cancel') {
-    setMessage('')
+    setError('')
     const resp = await fetch(`${base}/portal/api/billing/${action}`, {
       method: 'POST',
       headers: {
@@ -31,9 +51,10 @@ export default function BillingPage() {
     })
     const data = await resp.json().catch(() => ({}))
     if (resp.ok) {
-      setMessage(`Suscripción ${data.status}`)
+      setStatus(data.status)
     } else {
-      setMessage(data.detail || 'Error')
+      setStatus(null)
+      setError(data.detail || 'Error')
     }
   }
 
@@ -66,8 +87,15 @@ export default function BillingPage() {
         >
           Cancelar
         </button>
+        <button
+          className="px-3 py-1 bg-blue-500 text-white rounded"
+          onClick={fetchStatus}
+        >
+          Consultar
+        </button>
       </div>
-      {message && <div className="text-sm">{message}</div>}
+      {status && <div className="text-sm">Estado: {status}</div>}
+      {error && <div className="text-sm text-red-600">{error}</div>}
     </div>
   )
 }

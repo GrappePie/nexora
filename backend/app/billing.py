@@ -68,6 +68,7 @@ class MercadoPagoProvider:
 
         token = os.getenv("MERCADOPAGO_ACCESS_TOKEN", "")
         self.sdk = mercadopago.SDK(token)
+        self.webhook_secret = os.getenv("MERCADOPAGO_WEBHOOK_SECRET", "")
 
     def create_subscription(self, customer_id: str, plan_id: str) -> str:
         sub = self.sdk.subscription().create(
@@ -81,6 +82,8 @@ class MercadoPagoProvider:
     def validate_webhook(self, payload: bytes, sig_header: str):
         import json
 
+        if self.webhook_secret and sig_header != self.webhook_secret:
+            raise ValueError("invalid_signature")
         return json.loads(payload.decode())
 
     def parse_event(self, event):
@@ -101,6 +104,7 @@ class PaddleProvider:
 
         api_key = os.getenv("PADDLE_API_KEY", "")
         self.client = PaddleClient(api_key=api_key)
+        self.webhook_secret = os.getenv("PADDLE_WEBHOOK_SECRET", "")
 
     def create_subscription(self, customer_id: str, plan_id: str) -> str:
         sub = self.client.subscriptions.create(
@@ -114,6 +118,8 @@ class PaddleProvider:
     def validate_webhook(self, payload: bytes, sig_header: str):
         import json
 
+        if self.webhook_secret and sig_header != self.webhook_secret:
+            raise ValueError("invalid_signature")
         return json.loads(payload.decode())
 
     def parse_event(self, event):
@@ -130,6 +136,23 @@ def get_billing_provider():
     if provider == "paddle":
         return PaddleProvider()
     raise RuntimeError("Unsupported billing provider")
+
+
+@router.get("/subscription", response_model=SubscriptionResponse)
+def get_subscription(
+    customer_id: str,
+    plan_id: str,
+    db: Session = Depends(get_db),
+    claims: dict = Depends(require_roles(["admin"])),
+):
+    sub = (
+        db.query(SubscriptionORM)
+        .filter_by(customer_id=customer_id, plan_id=plan_id)
+        .first()
+    )
+    if not sub:
+        raise HTTPException(status_code=404, detail="subscription_not_found")
+    return SubscriptionResponse(customer_id=sub.customer_id, plan_id=sub.plan_id, status=sub.status)
 
 
 @router.post("/subscribe", response_model=SubscriptionResponse)
