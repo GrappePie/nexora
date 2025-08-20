@@ -13,6 +13,8 @@ from . import auth as auth_router
 from . import quotes as quotes_router
 from . import cfdi as cfdi_router
 from . import billing as billing_router
+from . import stock as stock_router
+from . import invoice as invoice_router
 from .db import Base, engine, DATABASE_URL
 
 
@@ -80,3 +82,5 @@ app.include_router(auth_router.router)
 app.include_router(quotes_router.router)
 app.include_router(cfdi_router.router)
 app.include_router(billing_router.router)
+app.include_router(stock_router.router)
+app.include_router(invoice_router.router)
