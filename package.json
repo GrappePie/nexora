@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest",
     "backend:install": "python -m pip install -r backend/requirements.txt",
     "backend:dev": "python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --env-file backend/.env",
     "backend:alembic:upgrade": "python -m alembic -c backend/alembic.ini upgrade head",
@@ -43,6 +44,10 @@
     "eslint": "^9",
     "eslint-config-next": "15.4.6",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^1.0.0",
+    "@testing-library/react": "^14.0.0",
+    "@testing-library/jest-dom": "^6.0.0",
+    "jsdom": "^23.0.0"
   }
 }
