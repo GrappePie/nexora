@@ -17,6 +17,12 @@
 
 - Usa manifest + service worker. **No** requiere splash por tamaño.
 
+## Background Sync & IndexedDB
+
+- Las operaciones offline se guardan en IndexedDB (`src/lib/db.ts`).
+- El service worker (`public/sw.js`) registra `background sync` (`sync-operations`) y reintenta cuando vuelve la conexión.
+- Al completarse, la outbox se limpia automáticamente.
+
 ## Botón "Instalar"
 
 ```ts
