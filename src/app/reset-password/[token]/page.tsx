@@ -1,0 +1,36 @@
+'use client'
+
+import { useState } from 'react'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+
+export default function ResetPasswordPage({ params }: { params: { token: string } }) {
+  const [password, setPassword] = useState('')
+  const [done, setDone] = useState(false)
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    await fetch('/api/auth/reset-password', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ token: params.token, password }),
+    })
+    setDone(true)
+  }
+
+  return (
+    <div className="max-w-sm mx-auto p-4">
+      <form onSubmit={submit} className="space-y-4">
+        <Input
+          type="password"
+          value={password}
+          onChange={e => setPassword(e.target.value)}
+          required
+          placeholder="Nueva contraseña"
+        />
+        <Button type="submit">Restablecer</Button>
+        {done && <p className="text-sm text-green-600">Contraseña actualizada</p>}
+      </form>
+    </div>
+  )
+}

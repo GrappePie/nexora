@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, EmailStr
@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select, func
 from .db import get_db
 from .models import UserORM
+from .email import send_email
 import hashlib
 
 SECRET = "dev_secret_change_me"
@@ -46,4 +47,61 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
     }
     token = jwt.encode(claims, SECRET, algorithm=ALGO)
     return LoginResponse(access_token=token, exp=claims["exp"], roles=roles)
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+@router.post("/forgot-password")
+def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db)):
+    stmt = select(UserORM).where(func.lower(UserORM.email) == payload.email.lower())
+    user = db.execute(stmt).scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="user_not_found")
+    token = uuid4().hex
+    user.reset_token = token
+    user.reset_expires = datetime.now(timezone.utc) + timedelta(hours=1)
+    db.commit()
+    link = f"https://example.com/reset-password/{token}"
+    send_email(user.email, "Password reset", f"Reset link: {link}")
+    return {"message": "ok"}
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    password: str
+
+
+@router.post("/reset-password")
+def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db)):
+    stmt = select(UserORM).where(UserORM.reset_token == payload.token)
+    user = db.execute(stmt).scalar_one_or_none()
+    if not user or not user.reset_expires:
+        raise HTTPException(status_code=400, detail="invalid_token")
+    expires = user.reset_expires
+    if expires.tzinfo is None:
+        expires = expires.replace(tzinfo=timezone.utc)
+    if expires < datetime.now(timezone.utc):
+        raise HTTPException(status_code=400, detail="invalid_token")
+    user.hashed_password = hashlib.sha256(payload.password.encode()).hexdigest()
+    user.reset_token = None
+    user.reset_expires = None
+    db.commit()
+    return {"message": "password_reset"}
+
+
+class VerifyEmailRequest(BaseModel):
+    email: EmailStr
+
+
+@router.post("/verify-email")
+def verify_email(payload: VerifyEmailRequest, db: Session = Depends(get_db)):
+    stmt = select(UserORM).where(func.lower(UserORM.email) == payload.email.lower())
+    user = db.execute(stmt).scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="user_not_found")
+    user.is_verified = True
+    db.commit()
+    return {"message": "verified"}
 
