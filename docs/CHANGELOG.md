@@ -1,5 +1,11 @@
 Formato basado en *Keep a Changelog*.
 
+## [0.1.2] — 2025-08-20
+
+### Añadido
+- Core (FastAPI): modelos `users` y `roles`, migración y verificación de credenciales persistentes.
+- BFF (Next.js): configuración de NextAuth y `middleware` protegido para `/dashboard/*`.
+
 ## [0.1.1] — 2025-08-18
 
 ### Añadido
