@@ -3,7 +3,7 @@ from sqlalchemy import select
 from backend.app.main import app
 from backend.app.db import SessionLocal
 from backend.app.models import UserORM
-import hashlib
+import bcrypt
 
 client = TestClient(app)
 
@@ -23,7 +23,7 @@ def test_password_recovery_flow():
     assert r2.status_code == 200
     user2 = _get_user()
     assert user2.reset_token is None
-    assert user2.hashed_password == hashlib.sha256("newpass".encode()).hexdigest()
+    assert bcrypt.checkpw("newpass".encode(), user2.hashed_password.encode())
 
 
 def test_verify_email():

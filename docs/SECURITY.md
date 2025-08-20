@@ -39,3 +39,13 @@ Minimizar superficie expuesta, proteger datos y asegurar que el licenciamiento n
 
 - `/api/health` (backend).
 - Logs de `cloudflared` y `frontend`.
+
+## Roles y permisos
+
+La autenticación emite JWT con los roles del usuario. Estos roles se conservan en la sesión del portal.
+
+| Rol   | Permisos principales                                |
+|-------|-----------------------------------------------------|
+| admin | Gestión completa y operaciones críticas             |
+| user  | Operaciones estándar en la PWA                      |
+| viewer| Acceso de solo lectura a paneles e informes         |
