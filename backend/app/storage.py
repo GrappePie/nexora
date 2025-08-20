@@ -30,4 +30,5 @@ def upload_bytes(key: str, data: bytes, content_type: str = "application/octet-s
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, "wb") as f:
             f.write(data)
-        return f"file://{path.absolute()}"
+        # Use as_uri to build a proper file:// URL across platforms (e.g., file:///C:/... on Windows)
+        return path.resolve().as_uri()

@@ -8,8 +8,11 @@ export function ServiceWorker() {
       navigator.serviceWorker
         .register('/sw.js', { type: 'module' })
         .then(registration => {
+          const regWithSync = registration as unknown as {
+            sync?: { register: (tag: string) => Promise<void> };
+          };
           ['cotizaciones', 'evidencias'].forEach(tag => {
-            registration.sync?.register(`sync-${tag}`).catch(() => {});
+            regWithSync.sync?.register(`sync-${tag}`).catch(() => {});
           });
         })
         .catch(() => {});

@@ -4,6 +4,7 @@ import hashlib
 from uuid import uuid4
 from xml.etree.ElementTree import Element, SubElement, tostring
 from urllib.parse import urlparse
+from urllib.request import url2pathname
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse, RedirectResponse
@@ -87,7 +88,9 @@ def _build_pdf(uuid: str, customer: str, total: float) -> bytes:
 
 def _serve_url(url: str, filename: str, media_type: str):
     if url.startswith("file://"):
-        path = urlparse(url).path
+        parsed = urlparse(url)
+        # Convert file URI path to a valid local filesystem path across platforms
+        path = url2pathname(parsed.path)
         return FileResponse(path, media_type=media_type, filename=filename)
     return RedirectResponse(url)
 
