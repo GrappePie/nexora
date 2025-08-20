@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { ClipboardList, Upload } from "lucide-react";
 
@@ -26,14 +26,17 @@ export default function OrdenesTrabajo() {
   const [kanban] = useState<Record<string, WorkOrder[]>>(KANBAN_INIT);
   const [detalle, setDetalle] = useState<WorkOrder | null>(null);
   const [evidencias, setEvidencias] = useState<string[]>([]);
+  const [loadingEvidencias, setLoadingEvidencias] = useState(false);
+  const [errorEvidencias, setErrorEvidencias] = useState<string | null>(null);
   const [errorUpload, setErrorUpload] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   const MAX_FILES = 6;
   const MAX_MB = 4;
 
   const onUpload = (files: FileList | null) => {
-    if (!files) return;
+    if (!files || !detalle) return;
     const list = Array.from(files);
     const over = evidencias.length + list.length - MAX_FILES;
     if (over > 0) {
@@ -53,11 +56,36 @@ export default function OrdenesTrabajo() {
           fr.readAsDataURL(f);
         })
     );
-    Promise.all(readers).then((imgs) => {
-      setEvidencias((prev) => [...prev, ...imgs]);
-      setErrorUpload(null);
+    Promise.all(readers).then(async (imgs) => {
+      setUploading(true);
+      try {
+        const res = await fetch("/evidencias", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ otId: detalle.id, evidencias: imgs }),
+        });
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        setEvidencias((prev) => [...prev, ...(data || [])]);
+        setErrorUpload(null);
+      } catch {
+        setErrorUpload("Error al subir evidencias");
+      } finally {
+        setUploading(false);
+      }
     });
   };
+
+  useEffect(() => {
+    if (!detalle) return;
+    setLoadingEvidencias(true);
+    setErrorEvidencias(null);
+    fetch(`/evidencias?otId=${detalle.id}`)
+      .then((r) => r.json())
+      .then((data) => setEvidencias(data || []))
+      .catch(() => setErrorEvidencias("Error al cargar evidencias"))
+      .finally(() => setLoadingEvidencias(false));
+  }, [detalle]);
 
   const Column = ({ title, cards }: { title: string; cards: WorkOrder[] }) => (
     <div className="rounded-2xl bg-slate-50 border p-3 flex flex-col min-h-[320px]">
@@ -136,13 +164,21 @@ export default function OrdenesTrabajo() {
                     <button
                       onClick={() => inputRef.current?.click()}
                       className="flex items-center gap-2 px-3 py-2 rounded-xl border bg-white"
+                      disabled={uploading}
                     >
-                      <Upload className="h-4 w-4" /> Subir fotos
+                      <Upload className="h-4 w-4" />
+                      {uploading ? "Subiendo…" : "Subir fotos"}
                     </button>
-                    <button className="px-3 py-2 rounded-xl border">Tomar foto</button>
+                    <button className="px-3 py-2 rounded-xl border" disabled={uploading}>Tomar foto</button>
                   </div>
                   {errorUpload && (
                     <div className="mt-2 text-xs text-red-600">{errorUpload}</div>
+                  )}
+                  {loadingEvidencias && (
+                    <div className="mt-2 text-xs text-slate-500">Cargando evidencias…</div>
+                  )}
+                  {errorEvidencias && (
+                    <div className="mt-2 text-xs text-red-600">{errorEvidencias}</div>
                   )}
                   <div className="mt-3 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
                     {evidencias.map((src, i) => (
@@ -155,7 +191,7 @@ export default function OrdenesTrabajo() {
                         alt={`Evidencia ${i + 1}`}
                       />
                     ))}
-                    {evidencias.length === 0 && (
+                    {evidencias.length === 0 && !loadingEvidencias && (
                       <div className="col-span-full text-xs text-slate-500">
                         Aún no hay evidencias subidas.
                       </div>

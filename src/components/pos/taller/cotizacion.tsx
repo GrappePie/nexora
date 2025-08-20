@@ -29,6 +29,9 @@ export default function Cotizacion({
     tipo: string;
   }[]>([]);
   const [showShare, setShowShare] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [token, setToken] = useState<string | null>(null);
 
   const cliente = clientes.find((c) => c.id === clienteId)!;
   const vehiculo = vehiculos.find((v) => v.id === vehiculoId)!;
@@ -58,8 +61,7 @@ export default function Cotizacion({
     });
   };
 
-  const token = "ABC123";
-  const publicUrl = `${BASE_EXTERNAL}/approve/${token}`;
+  const publicUrl = token ? `${BASE_EXTERNAL}/approve/${token}` : "";
   const whatsappHref = `https://wa.me/?text=${encodeURIComponent(
     `Hola ${cliente?.nombre}, te comparto la cotización para tu ${
       vehiculo?.desc
@@ -237,13 +239,41 @@ export default function Cotizacion({
               Vigencia de la cotización: 72h
             </div>
           </div>
+          {error && (
+            <div className="mt-2 text-sm text-red-600">{error}</div>
+          )}
           <div className="mt-3 flex gap-2">
             <button
               className="flex items-center gap-2 px-4 py-2 rounded-xl text-white font-medium"
               style={{ background: PALETTE.accent }}
-              onClick={() => setShowShare(true)}
+              onClick={async () => {
+                setLoading(true);
+                setError(null);
+                try {
+                  const res = await fetch("/cotizacion", {
+                    method: "POST",
+                    headers: { "content-type": "application/json" },
+                    body: JSON.stringify({
+                      clienteId,
+                      vehiculoId,
+                      items,
+                      total,
+                    }),
+                  });
+                  if (!res.ok) throw new Error();
+                  const data = await res.json();
+                  setToken(data?.token || null);
+                  setShowShare(true);
+                } catch {
+                  setError("No se pudo guardar la cotización.");
+                } finally {
+                  setLoading(false);
+                }
+              }}
+              disabled={loading}
             >
-              <Share2 className="h-4 w-4" /> Guardar y Compartir para Aprobación
+              <Share2 className="h-4 w-4" />
+              {loading ? "Guardando…" : "Guardar y Compartir para Aprobación"}
             </button>
             <button className="px-4 py-2 rounded-xl border">Guardar borrador</button>
           </div>
