@@ -12,13 +12,3 @@ declare module 'next-auth' {
     roles?: string[]
   }
 }
-
-declare module 'next-auth/providers/credentials' {
-  const Credentials: (options?: any) => any
-  export default Credentials
-}
-
-declare module 'next-auth/middleware' {
-  const middleware: any
-  export default middleware
-}

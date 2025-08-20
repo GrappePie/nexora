@@ -1,10 +1,13 @@
 'use client'
 
 import { useState } from 'react'
+import { useParams } from 'next/navigation'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 
-export default function ResetPasswordPage({ params }: { params: { token: string } }) {
+export default function ResetPasswordPage() {
+  const { token } = useParams<{ token: string }>()
+
   const [password, setPassword] = useState('')
   const [done, setDone] = useState(false)
 
@@ -13,7 +16,7 @@ export default function ResetPasswordPage({ params }: { params: { token: string 
     await fetch('/api/auth/reset-password', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ token: params.token, password }),
+      body: JSON.stringify({ token, password }),
     })
     setDone(true)
   }

@@ -1,3 +1,5 @@
+'use client';
+
 import React, {createContext, useContext} from 'react';
 import messages from '@/messages/es.json';
 
@@ -10,4 +12,3 @@ export function I18nProvider({children}:{children:React.ReactNode}) {
 export function useTranslations() {
   return useContext(I18nContext);
 }
-
