@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from alembic import op
 import sqlalchemy as sa
-import hashlib
+import bcrypt
 
 # revision identifiers, used by Alembic.
 revision = '20250818_0003'
@@ -44,7 +44,7 @@ def upgrade() -> None:
     user_roles_table = sa.table(
         'user_roles', sa.column('user_id', sa.Integer), sa.column('role_id', sa.Integer)
     )
-    admin_hash = hashlib.sha256('admin'.encode()).hexdigest()
+    admin_hash = bcrypt.hashpw('admin'.encode(), bcrypt.gensalt()).decode()
     op.bulk_insert(role_table, [{'id': 1, 'name': 'admin'}])
     op.bulk_insert(user_table, [{'id': 1, 'email': 'admin@example.com', 'hashed_password': admin_hash}])
     op.bulk_insert(user_roles_table, [{'user_id': 1, 'role_id': 1}])

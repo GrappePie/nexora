@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 import logging
-import hashlib
+import bcrypt
 
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -25,14 +25,23 @@ class LoginRequest(BaseModel):
     email: EmailStr
     password: str
 
+
+class SignupRequest(BaseModel):
+    email: EmailStr
+    password: str
+
 class LoginResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     exp: int
     roles: list[str] = []
 
+
+def hash_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+
 def verify_password(password: str, hashed: str) -> bool:
-    return hashlib.sha256(password.encode()).hexdigest() == hashed
+    return bcrypt.checkpw(password.encode(), hashed.encode())
 
 
 bearer = HTTPBearer(auto_error=False)
@@ -77,6 +86,50 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
     return LoginResponse(access_token=token, exp=claims["exp"], roles=roles)
 
 
+@router.post("/signup", response_model=LoginResponse, status_code=201)
+def signup(payload: SignupRequest, db: Session = Depends(get_db)):
+    logger.info("signup attempt for %s", payload.email)
+    stmt = select(UserORM).where(func.lower(UserORM.email) == payload.email.lower())
+    existing = db.execute(stmt).scalar_one_or_none()
+    if existing:
+        raise HTTPException(status_code=400, detail="user_exists")
+    user = UserORM(email=payload.email.lower(), hashed_password=hash_password(payload.password))
+    db.add(user)
+    db.commit()
+    roles = [r.name for r in user.roles]
+    now = datetime.now(tz=timezone.utc)
+    exp = now + timedelta(hours=8)
+    claims = {
+        "sub": payload.email,
+        "roles": roles,
+        "iat": int(now.timestamp()),
+        "exp": int(exp.timestamp()),
+    }
+    token = jwt.encode(claims, SECRET, algorithm=ALGO)
+    return LoginResponse(access_token=token, exp=claims["exp"], roles=roles)
+
+
+@router.post("/refresh", response_model=LoginResponse)
+def refresh(credentials: HTTPAuthorizationCredentials = Depends(bearer)):
+    if not credentials:
+        raise HTTPException(status_code=401, detail="unauthorized")
+    token = credentials.credentials
+    try:
+        claims = jwt.decode(token, SECRET, algorithms=[ALGO])
+    except JWTError:
+        raise HTTPException(status_code=401, detail="invalid_token")
+    now = datetime.now(tz=timezone.utc)
+    exp = now + timedelta(hours=8)
+    new_claims = {
+        "sub": claims.get("sub"),
+        "roles": claims.get("roles", []),
+        "iat": int(now.timestamp()),
+        "exp": int(exp.timestamp()),
+    }
+    new_token = jwt.encode(new_claims, SECRET, algorithm=ALGO)
+    return LoginResponse(access_token=new_token, exp=new_claims["exp"], roles=new_claims["roles"])
+
+
 class ForgotPasswordRequest(BaseModel):
     email: EmailStr
 
@@ -114,7 +167,7 @@ def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db))
         expires = expires.replace(tzinfo=timezone.utc)
     if expires < datetime.now(timezone.utc):
         raise HTTPException(status_code=400, detail="invalid_token")
-    user.hashed_password = hashlib.sha256(payload.password.encode()).hexdigest()
+    user.hashed_password = hash_password(payload.password)
     user.reset_token = None
     user.reset_expires = None
     db.commit()
