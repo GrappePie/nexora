@@ -22,6 +22,8 @@ import {
 
 import { PALETTE, currency } from "./constants";
 import { LicenseState } from "@/types/pos";
+import { useSession } from "next-auth/react";
+import { hasRole } from "@/lib/utils";
 
 function licenseBadge(state: LicenseState) {
   const map: Record<LicenseState, { label: string; className: string }> = {
@@ -68,6 +70,10 @@ function KpiCard({ title, value, foot }: { title: string; value: string; foot?: 
 }
 
 export default function Dashboard({ licenseState }: { licenseState: LicenseState }) {
+  const { data } = useSession();
+  if (!hasRole(data?.roles, "admin")) {
+    return <div>Acceso denegado</div>;
+  }
   const lic = licenseBadge(licenseState);
   const storageUsedPct = 62;
   const approvalsPend = 3;
