@@ -8,18 +8,22 @@ from backend.app.auth import SECRET, ALGO
 import os
 
 
-def test_generate_cfdi(tmp_path, monkeypatch):
-    # use local storage dir
-    monkeypatch.setenv("S3_ENDPOINT", "")
-    monkeypatch.setenv("S3_LOCAL_DIR", str(tmp_path))
-    client = TestClient(app)
+def _auth_headers():
     now = datetime.now(timezone.utc)
     token = jwt.encode(
         {"sub": "tester", "roles": ["admin"], "exp": int((now + timedelta(hours=1)).timestamp())},
         SECRET,
         algorithm=ALGO,
     )
-    headers = {"Authorization": f"Bearer {token}"}
+    return {"Authorization": f"Bearer {token}"}
+
+
+def test_generate_cfdi(tmp_path, monkeypatch):
+    # use local storage dir
+    monkeypatch.setenv("S3_ENDPOINT", "")
+    monkeypatch.setenv("S3_LOCAL_DIR", str(tmp_path))
+    client = TestClient(app)
+    headers = _auth_headers()
     payload = {
         "customer": "ACME",
         "items": [{"description": "Servicio", "quantity": 1, "unit_price": 100.0}],
@@ -42,3 +46,13 @@ def test_generate_cfdi(tmp_path, monkeypatch):
     assert resp_pdf.status_code == 200
     assert resp_pdf.headers["content-type"] == "application/pdf"
     assert resp_pdf.content.startswith(b"%PDF")
+
+
+def test_download_cfdi_not_found_returns_404(tmp_path, monkeypatch):
+    monkeypatch.setenv("S3_ENDPOINT", "")
+    monkeypatch.setenv("S3_LOCAL_DIR", str(tmp_path))
+    client = TestClient(app)
+    headers = _auth_headers()
+    resp = client.get("/cfdi/nope", headers=headers)
+    assert resp.status_code == 404
+    assert resp.json().get("detail") == "cfdi_not_found"

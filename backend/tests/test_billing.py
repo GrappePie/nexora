@@ -109,3 +109,18 @@ def test_cancel_endpoint(monkeypatch):
             )
         ).first()
         assert row.status == "cancelled"
+
+
+def test_cancel_nonexistent_subscription_returns_404(monkeypatch):
+    os.environ["BILLING_PROVIDER"] = "stripe"
+    os.environ["STRIPE_API_KEY"] = "sk_test"
+
+    monkeypatch.setattr(
+        stripe.Subscription, "delete", staticmethod(lambda id: {"id": id})
+    )
+    payload = {"customer_id": "nope", "plan_id": "plan_basic"}
+    r = client.post(
+        "/portal/api/billing/cancel", json=payload, headers=_auth_headers()
+    )
+    assert r.status_code == 404
+    assert r.json().get("detail") == "subscription_not_found"
