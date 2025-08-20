@@ -10,6 +10,8 @@ psycopg[binary]==3.2.3
 stripe==12.4.0
 mercadopago==2.3.0
 paddle-client==1.0.0
+# Metrics
+prometheus-client==0.21.0
 # Testing
 pytest==8.3.3
 httpx==0.28.1

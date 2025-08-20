@@ -1,6 +1,6 @@
-from pydantic import BaseModel
-from datetime import datetime, timezone
 import hashlib
+import logging
+from datetime import datetime, timezone
 from uuid import uuid4
 from xml.etree.ElementTree import Element, SubElement, tostring
 from urllib.parse import urlparse
@@ -8,6 +8,7 @@ from urllib.request import url2pathname
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse, RedirectResponse
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from .auth import require_roles
@@ -17,6 +18,8 @@ from .storage import upload_bytes
 
 
 router = APIRouter(prefix="/cfdi", tags=["cfdi"])
+
+logger = logging.getLogger(__name__)
 
 
 class Item(BaseModel):
@@ -101,6 +104,7 @@ def generate_cfdi(
     db: Session = Depends(get_db),
     claims: dict = Depends(require_roles(["admin"])),
 ) -> CfdiResponse:
+    logger.info("generate cfdi for %s", payload.customer)
     uuid = uuid4().hex
     total = sum(i.quantity * i.unit_price for i in payload.items)
     xml_content = _build_xml(uuid, payload.customer, payload.items, total)
@@ -128,6 +132,7 @@ def download_cfdi(
     db: Session = Depends(get_db),
     claims: dict = Depends(require_roles(["admin"])),
 ):
+    logger.info("download cfdi %s", cfdi_uuid)
     row = db.query(CfdiDocumentORM).filter(CfdiDocumentORM.uuid == cfdi_uuid).first()
     if not row:
         raise HTTPException(status_code=404, detail="cfdi_not_found")

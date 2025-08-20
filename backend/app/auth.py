@@ -1,6 +1,9 @@
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
+import logging
+import hashlib
+
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, EmailStr
@@ -10,12 +13,13 @@ from sqlalchemy import select, func
 from .db import get_db
 from .models import UserORM
 from .email import send_email
-import hashlib
 
 SECRET = "dev_secret_change_me"
 ALGO = "HS256"
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+logger = logging.getLogger(__name__)
 
 class LoginRequest(BaseModel):
     email: EmailStr
@@ -55,6 +59,7 @@ def require_roles(required: list[str]):
 
 @router.post("/login", response_model=LoginResponse)
 def login(payload: LoginRequest, db: Session = Depends(get_db)):
+    logger.info("login attempt for %s", payload.email)
     stmt = select(UserORM).where(func.lower(UserORM.email) == payload.email.lower())
     user = db.execute(stmt).scalar_one_or_none()
     if not user or not verify_password(payload.password, user.hashed_password):
@@ -78,6 +83,7 @@ class ForgotPasswordRequest(BaseModel):
 
 @router.post("/forgot-password")
 def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db)):
+    logger.info("forgot password for %s", payload.email)
     stmt = select(UserORM).where(func.lower(UserORM.email) == payload.email.lower())
     user = db.execute(stmt).scalar_one_or_none()
     if not user:
@@ -98,6 +104,7 @@ class ResetPasswordRequest(BaseModel):
 
 @router.post("/reset-password")
 def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db)):
+    logger.info("reset password token %s", payload.token)
     stmt = select(UserORM).where(UserORM.reset_token == payload.token)
     user = db.execute(stmt).scalar_one_or_none()
     if not user or not user.reset_expires:
@@ -120,6 +127,7 @@ class VerifyEmailRequest(BaseModel):
 
 @router.post("/verify-email")
 def verify_email(payload: VerifyEmailRequest, db: Session = Depends(get_db)):
+    logger.info("verify email for %s", payload.email)
     stmt = select(UserORM).where(func.lower(UserORM.email) == payload.email.lower())
     user = db.execute(stmt).scalar_one_or_none()
     if not user:
