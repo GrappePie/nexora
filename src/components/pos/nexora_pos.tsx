@@ -36,6 +36,7 @@ import {
   ConfiguracionView,
   AprobacionPublica,
 } from ".";
+import { useTranslations } from "@/lib/i18n";
 
 const CATALOG_INIT: CatalogItem[] = [
   { id: "srv-01", tipo: "Servicio", nombre: "Cambio de aceite 5W-30", precio: 950 },
@@ -130,12 +131,14 @@ function Topbar({
   envHost: "LAN" | "EXTERNAL";
   onInstallPrompt: () => void;
 }) {
+  const t = useTranslations();
   return (
     <header className="sticky top-0 z-10 flex items-center justify-between gap-3 px-4 py-3 md:px-6 border-b bg-white/70 backdrop-blur supports-[backdrop-filter]:bg-white/60">
       <div className="flex items-center gap-3">
         <button
           className="md:hidden inline-flex items-center justify-center w-9 h-9 rounded-xl border"
           onClick={() => onNavigate("__toggleDrawer")}
+          aria-label={t.actions.openMenu}
         >
           ☰
         </button>
@@ -148,22 +151,27 @@ function Topbar({
           Host: {envHost}
         </span>
       </div>
-      <div className="flex items-center gap-2">
-        <button
-          className="hidden sm:inline-flex items-center gap-2 px-3 py-2 rounded-xl border"
-          onClick={onInstallPrompt}
-        >
-          <HardDrive className="h-4 w-4" /> Instalar PWA
-        </button>
-        <div className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl border bg-white">
-          <Search className="h-4 w-4 text-slate-400" />
-          <input
-            placeholder="Buscar órdenes, clientes, vehículos…"
-            className="outline-none text-sm w-56"
-          />
+        <div className="flex items-center gap-2">
+          <button
+            className="hidden sm:inline-flex items-center gap-2 px-3 py-2 rounded-xl border"
+            onClick={onInstallPrompt}
+          >
+            <HardDrive className="h-4 w-4" /> Instalar PWA
+          </button>
+          <div className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl border bg-white">
+            <Search className="h-4 w-4 text-slate-400" />
+            <label htmlFor="global-search" className="sr-only">
+              {t.search.global}
+            </label>
+            <input
+              id="global-search"
+              aria-label={t.search.global}
+              placeholder={t.search.global}
+              className="outline-none text-sm w-56"
+            />
+          </div>
+          <div className="w-8 h-8 rounded-full bg-slate-200" title="Usuario" />
         </div>
-        <div className="w-8 h-8 rounded-full bg-slate-200" title="Usuario" />
-      </div>
     </header>
   );
 }
