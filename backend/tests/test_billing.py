@@ -124,3 +124,22 @@ def test_cancel_nonexistent_subscription_returns_404(monkeypatch):
     )
     assert r.status_code == 404
     assert r.json().get("detail") == "subscription_not_found"
+
+def test_webhook_invalid_signature(monkeypatch):
+    os.environ["BILLING_PROVIDER"] = "stripe"
+    os.environ["STRIPE_API_KEY"] = "sk_test"
+    os.environ["STRIPE_WEBHOOK_SECRET"] = "whsec_test"
+
+    def raise_error(payload, sig, secret):
+        raise ValueError("bad")
+
+    monkeypatch.setattr(
+        stripe.Webhook, "construct_event", staticmethod(raise_error)
+    )
+
+    r = client.post(
+        "/portal/api/billing/webhook",
+        headers={"stripe-signature": "bad"},
+        content=b"{}",
+    )
+    assert r.status_code == 400
