@@ -21,6 +21,10 @@ export default function Caja({ licenseState }: { licenseState: LicenseState }) {
   const [pagado, setPagado] = useState(false);
   const [loadingPago, setLoadingPago] = useState(false);
   const [errorPago, setErrorPago] = useState<string | null>(null);
+  const [cfdi, setCfdi] = useState<{ xml_url: string; pdf_url: string } | null>(
+    null
+  );
+  const [timbrando, setTimbrando] = useState(false);
 
   const limited = licenseState === "limited";
 
@@ -69,6 +73,7 @@ export default function Caja({ licenseState }: { licenseState: LicenseState }) {
                 onClick={() => {
                   setSelected(o.id);
                   setPagado(false);
+                  setCfdi(null);
                 }}
                 className={`w-full text-left rounded-xl border p-3 hover:shadow ${
                   selected === o.id ? "ring-2 ring-[#2563EB]" : ""
@@ -168,6 +173,30 @@ export default function Caja({ licenseState }: { licenseState: LicenseState }) {
                       setCobros((prev) =>
                         prev.map((c) => (c.id === data.id ? data : c))
                       );
+                      if (facturar && !limited) {
+                        setTimbrando(true);
+                        try {
+                          const cfdiRes = await fetch(`/cfdi`, {
+                            method: "POST",
+                            headers: { "content-type": "application/json" },
+                            body: JSON.stringify({
+                              customer: orden.cliente,
+                              items: [
+                                {
+                                  description: "Servicio",
+                                  quantity: 1,
+                                  unit_price: orden.total,
+                                },
+                              ],
+                            }),
+                          });
+                          if (cfdiRes.ok) {
+                            setCfdi(await cfdiRes.json());
+                          }
+                        } finally {
+                          setTimbrando(false);
+                        }
+                      }
                     } catch {
                       setErrorPago("Error al registrar el pago");
                     } finally {
@@ -199,16 +228,33 @@ export default function Caja({ licenseState }: { licenseState: LicenseState }) {
               {pagado && (
                 <div className="mt-3 rounded-xl border p-3 bg-emerald-50">
                   <div className="text-sm font-semibold flex items-center gap-2">
-                    <Activity className="h-4 w-4" /> Timbrado en cola (sandbox)
+                    <Activity className="h-4 w-4" />
+                    {cfdi
+                      ? "Timbrado completo"
+                      : timbrando
+                      ? "Timbrando…"
+                      : "Timbrado en cola (sandbox)"}
                   </div>
                   <div className="text-xs text-slate-600 mt-1">
-                    Tu CFDI se está generando. Archivos disponibles pronto:
+                    {cfdi
+                      ? "Archivos disponibles:"
+                      : "Tu CFDI se está generando. Archivos disponibles pronto:"}
                   </div>
                   <div className="mt-2 flex gap-2 text-sm">
-                    <a href="#" className="px-3 py-1.5 rounded-xl border">
+                    <a
+                      href={cfdi?.xml_url || "#"}
+                      className={`px-3 py-1.5 rounded-xl border ${
+                        cfdi ? "" : "pointer-events-none opacity-50"
+                      }`}
+                    >
                       Descargar XML
                     </a>
-                    <a href="#" className="px-3 py-1.5 rounded-xl border">
+                    <a
+                      href={cfdi?.pdf_url || "#"}
+                      className={`px-3 py-1.5 rounded-xl border ${
+                        cfdi ? "" : "pointer-events-none opacity-50"
+                      }`}
+                    >
                       Descargar PDF
                     </a>
                   </div>

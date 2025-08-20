@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 
 from . import auth as auth_router
 from . import quotes as quotes_router
+from . import cfdi as cfdi_router
 from .db import Base, engine, DATABASE_URL
 
 
@@ -31,3 +32,4 @@ def license_status():
 
 app.include_router(auth_router.router)
 app.include_router(quotes_router.router)
+app.include_router(cfdi_router.router)
