@@ -29,3 +29,21 @@ El portal Nexora solo es necesario para la gestión de licencias, suscripciones 
 - Firmas **Ed25519** (portal crea, host verifica).
 - Tokens de provisión/join 15 min, un solo uso.
 - Revocación desde portal; host aplica al reconectar.
+
+## Despliegue de facturación
+
+El backend del portal expone el módulo de facturación en `/portal/api/billing`.
+Antes de desplegar, asegúrate de definir las credenciales de los proveedores de
+pago.
+
+### Variables de entorno
+
+- `STRIPE_API_KEY`: clave privada de Stripe.
+- `STRIPE_WEBHOOK_SECRET`: secreto para validar los webhooks de Stripe.
+- `MP_ACCESS_TOKEN`: token de acceso de Mercado Pago.
+- `MP_WEBHOOK_SECRET`: secreto para validar los webhooks de Mercado Pago.
+
+### Webhooks
+
+Registra la URL `https://<tu-dominio>/portal/api/billing/webhook` en los
+paneles de Stripe y Mercado Pago para recibir notificaciones de pago.
