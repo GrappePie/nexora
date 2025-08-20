@@ -11,13 +11,15 @@ export function ServiceWorker() {
           const regWithSync = registration as unknown as {
             sync?: { register: (tag: string) => Promise<void> };
           };
-          [
+          const tags = [
             'cotizaciones',
             'evidencias',
             'approve/confirm',
             'auth/forgot-password',
             'auth/reset-password',
-          ].forEach(tag => {
+            'cfdi',
+          ];
+          tags.forEach(tag => {
             regWithSync.sync?.register(`sync-${tag}`).catch(() => {});
           });
         })
