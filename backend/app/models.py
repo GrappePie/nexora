@@ -1,5 +1,14 @@
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import String, Float, DateTime, Table, Column, ForeignKey, Integer
+from sqlalchemy import (
+    String,
+    Float,
+    DateTime,
+    Table,
+    Column,
+    ForeignKey,
+    Integer,
+    Boolean,
+)
 from .db import Base
 from uuid import uuid4
 from datetime import datetime, timezone, timedelta
@@ -29,6 +38,9 @@ class UserORM(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
+    reset_token: Mapped[str | None] = mapped_column(String(64), nullable=True, unique=True)
+    reset_expires: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    is_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     roles: Mapped[list[RoleORM]] = relationship(
         "RoleORM", secondary=user_roles, back_populates="users"
     )
