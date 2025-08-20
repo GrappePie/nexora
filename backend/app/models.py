@@ -77,3 +77,16 @@ class InvoiceORM(Base):
     created_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True, default=lambda: datetime.now(timezone.utc)
     )
+
+
+class CfdiDocumentORM(Base):
+    __tablename__ = "cfdi_documents"
+
+    uuid: Mapped[str] = mapped_column(String(32), primary_key=True)
+    customer: Mapped[str] = mapped_column(String(255), nullable=False)
+    total: Mapped[float] = mapped_column(Float, nullable=False)
+    xml_url: Mapped[str] = mapped_column(String(1024), nullable=False)
+    pdf_url: Mapped[str] = mapped_column(String(1024), nullable=False)
+    created_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, default=lambda: datetime.now(timezone.utc)
+    )
