@@ -44,6 +44,34 @@ class LoginResponse(BaseModel):
     roles: list[str] = []
 
 
+def _build_claims(sub: str, roles: list[str], expires: timedelta) -> dict:
+    """Helper to create standard JWT claims."""
+    now = datetime.now(tz=timezone.utc)
+    exp = now + expires
+    return {
+        "sub": sub,
+        "roles": roles,
+        "iat": int(now.timestamp()),
+        "exp": int(exp.timestamp()),
+    }
+
+
+def create_access_token(sub: str, roles: list[str], expires: timedelta | None = None) -> tuple[str, int]:
+    """Generate a signed JWT for the given subject and roles."""
+    expires = expires or timedelta(hours=8)
+    claims = _build_claims(sub, roles, expires)
+    token = jwt.encode(claims, SECRET, algorithm=ALGO)
+    return token, claims["exp"]
+
+
+def decode_access_token(token: str) -> dict:
+    """Decode and validate a JWT, returning its claims."""
+    try:
+        return jwt.decode(token, SECRET, algorithms=[ALGO])
+    except JWTError as exc:
+        raise HTTPException(status_code=401, detail="invalid_token") from exc
+
+
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
 
@@ -61,10 +89,7 @@ def require_roles(required: list[str]):
         if not credentials:
             raise HTTPException(status_code=401, detail="unauthorized")
         token = credentials.credentials
-        try:
-            claims = jwt.decode(token, SECRET, algorithms=[ALGO])
-        except JWTError:
-            raise HTTPException(status_code=401, detail="invalid_token")
+        claims = decode_access_token(token)
         roles = claims.get("roles", [])
         if not any(r in roles for r in required):
             raise HTTPException(status_code=403, detail="forbidden")
@@ -81,16 +106,8 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
     if not user or not verify_password(payload.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="invalid_credentials")
     roles = [r.name for r in user.roles]
-    now = datetime.now(tz=timezone.utc)
-    exp = now + timedelta(hours=8)
-    claims = {
-        "sub": payload.email,
-        "roles": roles,
-        "iat": int(now.timestamp()),
-        "exp": int(exp.timestamp()),
-    }
-    token = jwt.encode(claims, SECRET, algorithm=ALGO)
-    return LoginResponse(access_token=token, exp=claims["exp"], roles=roles)
+    token, exp = create_access_token(payload.email, roles)
+    return LoginResponse(access_token=token, exp=exp, roles=roles)
 
 
 @router.post("/signup", response_model=LoginResponse, status_code=201)
@@ -104,16 +121,8 @@ def signup(payload: SignupRequest, db: Session = Depends(get_db)):
     db.add(user)
     db.commit()
     roles = [r.name for r in user.roles]
-    now = datetime.now(tz=timezone.utc)
-    exp = now + timedelta(hours=8)
-    claims = {
-        "sub": payload.email,
-        "roles": roles,
-        "iat": int(now.timestamp()),
-        "exp": int(exp.timestamp()),
-    }
-    token = jwt.encode(claims, SECRET, algorithm=ALGO)
-    return LoginResponse(access_token=token, exp=claims["exp"], roles=roles)
+    token, exp = create_access_token(payload.email, roles)
+    return LoginResponse(access_token=token, exp=exp, roles=roles)
 
 
 @router.post("/refresh", response_model=LoginResponse)
@@ -121,20 +130,10 @@ def refresh(credentials: HTTPAuthorizationCredentials = Depends(bearer)):
     if not credentials:
         raise HTTPException(status_code=401, detail="unauthorized")
     token = credentials.credentials
-    try:
-        claims = jwt.decode(token, SECRET, algorithms=[ALGO])
-    except JWTError:
-        raise HTTPException(status_code=401, detail="invalid_token")
-    now = datetime.now(tz=timezone.utc)
-    exp = now + timedelta(hours=8)
-    new_claims = {
-        "sub": claims.get("sub"),
-        "roles": claims.get("roles", []),
-        "iat": int(now.timestamp()),
-        "exp": int(exp.timestamp()),
-    }
-    new_token = jwt.encode(new_claims, SECRET, algorithm=ALGO)
-    return LoginResponse(access_token=new_token, exp=new_claims["exp"], roles=new_claims["roles"])
+    claims = decode_access_token(token)
+    roles = claims.get("roles", [])
+    new_token, exp = create_access_token(claims.get("sub", ""), roles)
+    return LoginResponse(access_token=new_token, exp=exp, roles=roles)
 
 
 class ForgotPasswordRequest(BaseModel):
