@@ -1,4 +1,5 @@
 import React from 'react'
+import { enqueueOperation } from '@/lib/db'
 
 async function approveCheck(token: string) {
   const base = process.env.NEXT_PUBLIC_BASE_PATH || ''
@@ -10,7 +11,7 @@ async function approveCheck(token: string) {
   return { ok: res.ok, data }
 }
 
-function ApproveActions({ token, quoteId }: { token: string; quoteId: string }) {
+export function ApproveActions({ token, quoteId }: { token: string; quoteId: string }) {
   'use client'
   const [busy, setBusy] = React.useState(false)
   const [msg, setMsg] = React.useState<string | null>(null)
@@ -52,6 +53,7 @@ function ApproveActions({ token, quoteId }: { token: string; quoteId: string }) 
         setMsg('Error al aprobar. Intenta más tarde.')
       }
     } catch {
+      await enqueueOperation('approve/confirm', { token })
       setOk(false)
       setMsg('No se pudo contactar al servicio.')
     } finally {

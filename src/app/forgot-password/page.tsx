@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { enqueueOperation } from '@/lib/db'
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
@@ -10,11 +11,15 @@ export default function ForgotPasswordPage() {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
-    await fetch('/api/auth/forgot-password', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ email }),
-    })
+    try {
+      await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+    } catch {
+      await enqueueOperation('auth/forgot-password', { email })
+    }
     setSent(true)
   }
 
