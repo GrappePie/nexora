@@ -7,6 +7,12 @@
 - **work\_orders**: OTs generadas desde una cotización.
 - **attachments**: archivos/fotos ligados a OT (clave S3/MinIO).
 - **license\_state**: licencia y estado local (modo limitado, última verificación).
+- **users**: credenciales e información de inicio de sesión.
+- **roles**: roles de acceso asignados a usuarios.
+- **stock**: inventario de artículos disponibles.
+- **invoices**: facturas internas asociadas a clientes.
+- **cfdi_documents**: CFDI timbrados con enlaces a XML y PDF.
+- **subscriptions**: suscripciones de clientes a planes y proveedor.
 
 ## Relaciones
 
