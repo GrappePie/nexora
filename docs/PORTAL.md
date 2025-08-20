@@ -47,3 +47,22 @@ pago.
 
 Registra la URL `https://<tu-dominio>/portal/api/billing/webhook` en los
 paneles de Stripe y Mercado Pago para recibir notificaciones de pago.
+
+### Páginas de suscripción
+
+El frontend incluye una vista en `/billing` para administrar los planes. Solo los usuarios con rol `admin` pueden acceder.
+La página usa el token de NextAuth para invocar la API del portal:
+
+- `POST /portal/api/billing/subscribe`
+- `POST /portal/api/billing/cancel`
+
+#### Configuración
+
+- Establece `NEXT_PUBLIC_API_BASE` apuntando al backend.
+- Asegúrate de que el usuario autenticado tenga el rol `admin`.
+
+#### Uso
+
+1. Abrir `/billing` en el portal.
+2. Capturar `customer_id` y `plan_id` del cliente.
+3. Utilizar **Suscribirse** para activar el plan o **Cancelar** para finalizarlo.
