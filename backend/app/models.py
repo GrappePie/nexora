@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import String, Float, DateTime, Table, Column, ForeignKey
+from sqlalchemy import String, Float, DateTime, Table, Column, ForeignKey, Integer
 from .db import Base
 from uuid import uuid4
 from datetime import datetime, timezone, timedelta
@@ -44,4 +44,24 @@ class QuoteORM(Base):
     created_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, default=lambda: datetime.now(timezone.utc))
     token_expires_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True, default=lambda: datetime.now(timezone.utc) + timedelta(days=7)
+    )
+
+
+class StockORM(Base):
+    __tablename__ = "stock"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    item: Mapped[str] = mapped_column(String(255), nullable=False)
+    quantity: Mapped[int] = mapped_column(Integer, nullable=False)
+    unit_price: Mapped[float] = mapped_column(Float, nullable=False)
+
+
+class InvoiceORM(Base):
+    __tablename__ = "invoices"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    customer: Mapped[str] = mapped_column(String(255), nullable=False)
+    total: Mapped[float] = mapped_column(Float, nullable=False)
+    created_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, default=lambda: datetime.now(timezone.utc)
     )
