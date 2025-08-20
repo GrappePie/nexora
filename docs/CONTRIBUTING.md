@@ -24,6 +24,15 @@
 - Unit tests backend (pytest) mínimos para licencias y presign.
 - E2E ligero: crear cotización → aprobar → subir evidencia.
 
+## Pipeline de CI
+
+- El workflow [`ci.yml`](../.github/workflows/ci.yml) se ejecuta en cada *push* o *pull request*.
+- Cachea dependencias de Node y Python.
+- Corre `npm run lint` y `npm test` en el frontend.
+- Ejecuta `pytest` para el backend.
+- Construye las imágenes Docker de ambos servicios (`docker build`).
+- Publica los logs de pruebas y las imágenes (`.tar`) como artefactos para su revisión.
+
 ## Lanzamientos
 
 - Versionado `MAJOR.MINOR.PATCH`.
