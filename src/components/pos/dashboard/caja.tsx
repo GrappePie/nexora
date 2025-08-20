@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Search, DollarSign, ReceiptText, Activity } from "lucide-react";
 
 import { PALETTE, currency } from "../constants";
@@ -8,19 +8,32 @@ import { LicenseState, WorkOrder } from "@/types/pos";
 
 type Cobro = WorkOrder & { saldo: number };
 
-const COBROS: Cobro[] = [
-  { id: "OT-0995", cliente: "Ana Q.", vehiculo: "Corolla 2014", mecanico: "", total: 3120, saldo: 3120 },
-  { id: "OT-1002", cliente: "Pedro M.", vehiculo: "Civic 2018", mecanico: "", total: 4890, saldo: 4890 },
-];
-
 export default function Caja({ licenseState }: { licenseState: LicenseState }) {
-  const [selected, setSelected] = useState<string | null>(COBROS[0]?.id ?? null);
-  const orden = COBROS.find((o) => o.id === selected) || null;
+  const [cobros, setCobros] = useState<Cobro[]>([]);
+  const [loadingCobros, setLoadingCobros] = useState(false);
+  const [errorCobros, setErrorCobros] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(null);
+  const orden = cobros.find((o) => o.id === selected) || null;
   const [metodo, setMetodo] = useState("Efectivo");
   const [facturar, setFacturar] = useState(true);
   const [pagado, setPagado] = useState(false);
+  const [loadingPago, setLoadingPago] = useState(false);
+  const [errorPago, setErrorPago] = useState<string | null>(null);
 
   const limited = licenseState === "limited";
+
+  useEffect(() => {
+    setLoadingCobros(true);
+    setErrorCobros(null);
+    fetch("/cobros")
+      .then((r) => r.json())
+      .then((data: Cobro[]) => {
+        setCobros(data);
+        setSelected(data[0]?.id ?? null);
+      })
+      .catch(() => setErrorCobros("Error al cargar cobros"))
+      .finally(() => setLoadingCobros(false));
+  }, []);
 
   return (
     <div className="p-4 md:p-6 grid grid-cols-1 lg:grid-cols-5 gap-6">
@@ -34,7 +47,13 @@ export default function Caja({ licenseState }: { licenseState: LicenseState }) {
             </div>
           </div>
           <div className="space-y-2 max-h-[360px] overflow-auto pr-1">
-            {COBROS.map((o) => (
+            {loadingCobros && (
+              <div className="text-sm text-slate-500">Cargando cobros…</div>
+            )}
+            {errorCobros && (
+              <div className="text-sm text-red-600">{errorCobros}</div>
+            )}
+            {cobros.map((o) => (
               <button
                 key={o.id}
                 onClick={() => {
@@ -123,11 +142,38 @@ export default function Caja({ licenseState }: { licenseState: LicenseState }) {
                 <button
                   className="flex-1 px-4 py-2 rounded-xl text-white font-medium"
                   style={{ background: PALETTE.accent }}
-                  onClick={() => setPagado(true)}
+                  onClick={async () => {
+                    if (!orden) return;
+                    setLoadingPago(true);
+                    setErrorPago(null);
+                    try {
+                      const res = await fetch(`/cobros/${orden.id}`, {
+                        method: "POST",
+                        headers: { "content-type": "application/json" },
+                        body: JSON.stringify({ metodo, facturar }),
+                      });
+                      if (!res.ok) throw new Error();
+                      const data = await res.json();
+                      setPagado(true);
+                      setCobros((prev) =>
+                        prev.map((c) => (c.id === data.id ? data : c))
+                      );
+                    } catch {
+                      setErrorPago("Error al registrar el pago");
+                    } finally {
+                      setLoadingPago(false);
+                    }
+                  }}
+                  disabled={loadingPago}
                 >
-                  <DollarSign className="inline h-5 w-5 mr-2" /> Registrar pago
+                  <DollarSign className="inline h-5 w-5 mr-2" />
+                  {loadingPago ? "Registrando…" : "Registrar pago"}
                 </button>
               </div>
+
+              {errorPago && (
+                <div className="mt-2 text-sm text-red-600">{errorPago}</div>
+              )}
 
               {facturar && !limited && (
                 <div className="mt-3 rounded-xl border p-3 bg-slate-50">
