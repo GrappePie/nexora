@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from .db import get_db
 from .models import QuoteORM
 from .auth import require_roles
+from .cfdi_queue import enqueue_cfdi_draft
 
 # Rate limiter simple en memoria (clave -> deque de timestamps)
 _RATE_BUCKETS: dict[str, deque[float]] = {}
@@ -118,6 +119,7 @@ def approve_confirm(payload: ApproveCheckRequest, db: Session = Depends(get_db))
     db.add(row)
     db.commit()
     db.refresh(row)
+    enqueue_cfdi_draft(db, row.id, row.customer, row.total)
     return Quote(id=row.id, customer=row.customer, total=row.total, status=row.status, token=row.token)
 
 @router.post("/{quote_id}/approve", response_model=Quote)
@@ -138,6 +140,7 @@ def approve_quote(
     db.add(row)
     db.commit()
     db.refresh(row)
+    enqueue_cfdi_draft(db, row.id, row.customer, row.total)
     return Quote(id=row.id, customer=row.customer, total=row.total, status=row.status, token=row.token)
 
 @router.post("/{quote_id}/reject", response_model=Quote)
