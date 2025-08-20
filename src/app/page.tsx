@@ -6,7 +6,6 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Dialog, DialogContent, DialogDescription, DialogFooter as DialogFooterUI, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { SearchHero } from '@/components/search-hero';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -230,14 +229,9 @@ const Home: NextPage = () => {
                       <Card key={item} className="bg-gray-900/70 border-gray-700/80 text-center">
                         <CardContent className="p-4">
                           <p className="font-semibold">{item}</p>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button asChild variant="link" className="text-blue-400 hover:text-blue-300 p-0 h-auto">
-                                <a href="#">Demo UI</a>
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Vista previa de la interfaz</TooltipContent>
-                          </Tooltip>
+                            <Button asChild variant="link" className="text-blue-400 hover:text-blue-300 p-0 h-auto">
+                              <a href="#">Demo UI</a>
+                            </Button>
                         </CardContent>
                       </Card>
                   ))}
