@@ -77,7 +77,11 @@ export const authOptions: AuthOptions = {
     async session({ session, token }) {
       const t = token as ExtendedToken
       ;(session as unknown as { accessToken?: string }).accessToken = t.accessToken
-      ;(session as unknown as { roles?: string[] }).roles = Array.isArray(t.roles) ? t.roles : undefined
+      const roles = Array.isArray(t.roles) ? t.roles : undefined
+      ;(session as unknown as { roles?: string[] }).roles = roles
+      if (session.user) {
+        ;(session.user as unknown as { roles?: string[] }).roles = roles
+      }
       return session
     },
   },

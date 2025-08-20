@@ -51,3 +51,11 @@ La matriz de roles se define en `backend/app/auth.py` como `ROLE_MATRIX`.
 | admin | Gestión completa y operaciones críticas             |
 | user  | Operaciones estándar en la PWA                      |
 | viewer| Acceso de solo lectura a paneles e informes         |
+
+## JWT y NextAuth
+
+- El backend firma los JWT con el algoritmo indicado en `JWT_ALGO` y el secreto `JWT_SECRET`.
+- Los tokens incluyen el sujeto (`sub`), tiempo de emisión (`iat`), expiración (`exp`) y la lista de `roles` del usuario.
+- El archivo `src/app/api/auth/[...nextauth]/route.ts` configura NextAuth para usar el backend (`/auth/login` y `/auth/refresh`).
+- Los roles y el `accessToken` se almacenan en la sesión de NextAuth y se renuevan automáticamente.
+- En el frontend se consume la sesión mediante `useSession` y el helper `hasRole` para restringir vistas.
