@@ -1,0 +1,27 @@
+{
+  "search": {
+    "global": "Buscar órdenes, clientes, vehículos…",
+    "orders": "Buscar órdenes, clientes, vehículos…",
+    "catalog": "Buscar en catálogo…"
+  },
+  "actions": {
+    "openMenu": "Abrir menú"
+  },
+  "catalog": {
+    "title": "Catálogo",
+    "add": "Añadir Nuevo",
+    "name": "Nombre",
+    "type": "Tipo",
+    "price": "Precio",
+    "service": "Servicio",
+    "part": "Refacción",
+    "actions": "Acciones"
+  },
+  "notes": {
+    "internal": "Notas internas",
+    "placeholder": "Observaciones, prioridades, etc."
+  },
+  "share": {
+    "publicUrl": "Enlace público"
+  }
+}

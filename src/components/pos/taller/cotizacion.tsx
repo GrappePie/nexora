@@ -6,6 +6,7 @@ import { QRCodeCanvas } from "qrcode.react";
 
 import { CatalogItem, Cliente, Vehiculo } from "@/types/pos";
 import { PALETTE, currency } from "../constants";
+import { useTranslations } from "@/lib/i18n";
 
 const BASE_EXTERNAL = "https://aprobar.nexora.com";
 
@@ -13,11 +14,11 @@ export default function Cotizacion({
   catalog,
   clientes,
   vehiculos,
-}: {
-  catalog: CatalogItem[];
-  clientes: Cliente[];
-  vehiculos: Vehiculo[];
-}) {
+  }: {
+    catalog: CatalogItem[];
+    clientes: Cliente[];
+    vehiculos: Vehiculo[];
+  }) {
   const [clienteId, setClienteId] = useState<string>("cli-01");
   const [vehiculoId, setVehiculoId] = useState<string>("veh-01");
   const [query, setQuery] = useState("");
@@ -31,10 +32,11 @@ export default function Cotizacion({
   const [showShare, setShowShare] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [token, setToken] = useState<string | null>(null);
+    const [token, setToken] = useState<string | null>(null);
 
-  const cliente = clientes.find((c) => c.id === clienteId)!;
-  const vehiculo = vehiculos.find((v) => v.id === vehiculoId)!;
+    const cliente = clientes.find((c) => c.id === clienteId)!;
+    const vehiculo = vehiculos.find((v) => v.id === vehiculoId)!;
+    const t = useTranslations();
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase();
@@ -132,10 +134,15 @@ export default function Cotizacion({
             <div className="text-sm font-semibold">Servicios y refacciones</div>
             <div className="flex items-center gap-2 px-3 py-2 rounded-xl border bg-white">
               <Search className="h-4 w-4 text-slate-400" />
+              <label htmlFor="catalog-search" className="sr-only">
+                {t.search.catalog}
+              </label>
               <input
+                id="catalog-search"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Buscar en catálogo…"
+                placeholder={t.search.catalog}
+                aria-label={t.search.catalog}
                 className="outline-none text-sm w-48"
               />
             </div>
@@ -278,14 +285,18 @@ export default function Cotizacion({
             <button className="px-4 py-2 rounded-xl border">Guardar borrador</button>
           </div>
         </div>
-        <div className="rounded-2xl border bg-white p-4">
-          <div className="text-xs text-slate-600">Notas internas</div>
-          <textarea
-            className="mt-2 w-full rounded-xl border p-2 min-h-[90px]"
-            placeholder="Observaciones, prioridades, etc."
-          />
+          <div className="rounded-2xl border bg-white p-4">
+            <label htmlFor="internal-notes" className="text-xs text-slate-600">
+              {t.notes.internal}
+            </label>
+            <textarea
+              id="internal-notes"
+              className="mt-2 w-full rounded-xl border p-2 min-h-[90px]"
+              placeholder={t.notes.placeholder}
+              aria-label={t.notes.internal}
+            />
+          </div>
         </div>
-      </div>
       {showShare && (
         <div
           className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center p-4"
@@ -306,12 +317,16 @@ export default function Cotizacion({
               <QRCodeCanvas value={publicUrl} size={128} />
             </div>
             <div className="mt-3 flex items-center gap-2">
-              <input
-                id="publicUrlInput"
-                className="flex-1 rounded-xl border px-3 py-2 text-sm"
-                value={publicUrl}
-                readOnly
-              />
+                <label htmlFor="publicUrlInput" className="sr-only">
+                  {t.share.publicUrl}
+                </label>
+                <input
+                  id="publicUrlInput"
+                  className="flex-1 rounded-xl border px-3 py-2 text-sm"
+                  value={publicUrl}
+                  readOnly
+                  aria-label={t.share.publicUrl}
+                />
               <button className="px-3 py-2 rounded-xl border" onClick={handleCopy}>
                 Copiar
               </button>

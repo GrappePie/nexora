@@ -5,6 +5,7 @@ import { Search, DollarSign, ReceiptText, Activity } from "lucide-react";
 
 import { PALETTE, currency } from "../constants";
 import { LicenseState, WorkOrder } from "@/types/pos";
+import { useTranslations } from "@/lib/i18n";
 
 type Cobro = WorkOrder & { saldo: number };
 
@@ -14,6 +15,7 @@ export default function Caja({ licenseState }: { licenseState: LicenseState }) {
   const [errorCobros, setErrorCobros] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const orden = cobros.find((o) => o.id === selected) || null;
+  const t = useTranslations();
   const [metodo, setMetodo] = useState("Efectivo");
   const [facturar, setFacturar] = useState(true);
   const [pagado, setPagado] = useState(false);
@@ -43,7 +45,15 @@ export default function Caja({ licenseState }: { licenseState: LicenseState }) {
             <div className="text-sm font-semibold">Órdenes finalizadas</div>
             <div className="flex items-center gap-2 px-3 py-2 rounded-xl border bg-white">
               <Search className="h-4 w-4 text-slate-400" />
-              <input placeholder="Buscar por cliente/OT…" className="outline-none text-sm w-48" />
+              <label htmlFor="orders-search" className="sr-only">
+                {t.search.orders}
+              </label>
+              <input
+                id="orders-search"
+                aria-label={t.search.orders}
+                placeholder={t.search.orders}
+                className="outline-none text-sm w-48"
+              />
             </div>
           </div>
           <div className="space-y-2 max-h-[360px] overflow-auto pr-1">
