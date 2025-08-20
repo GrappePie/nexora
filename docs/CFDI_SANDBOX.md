@@ -12,19 +12,16 @@ PAC_USER=demo
 PAC_PASS=demo
 ```
 
-## Flujo (propuesto)
+## Flujo
 
-1. **Config fiscal** en el Asistente (solo demo en MVP):
-    - Emisor (RFC, régimen, nombre, CP).
-    - Receptor (RFC genérico si procede: p. ej. público en general).
-    - Uso CFDI, método, forma de pago (demo).
-2. **Generar comprobante** desde cotización aprobada (servidor local):
-    - Construir JSON del CFDI 4.0 con partidas (claveProdServ, claveUnidad, IVA 16% etc.).
-    - Guardar borrador en DB y encolar **timbrado** (cola Redis) si no hay Internet.
-3. **Timbrado sandbox** (cuando hay conexión):
-    - POST a proveedor **sandbox** → recibir **XML** timbrado (fake) + UUID simulado.
-    - Guardar **XML** (MinIO) y generar **PDF** (plantilla simple).
-4. **Reintentos**: exponenciar con jitter; marcar como `pending → sent`.
+1. **Config fiscal** (`POST /cfdi/config`)
+    - Guardar RFC y proveedor en DB.
+2. **Cotización aprobada → borrador**
+    - Al aprobar se guarda en `cfdi_pending` y se encola en Redis.
+3. **Timbrado sandbox** (`POST /cfdi/process-pending`)
+    - Procesa la cola, genera XML/PDF y crea `cfdi_documents`.
+4. **Reintentos**
+    - Backoff exponencial, estados `pending` → `sent`.
 
 ## RFCs y pruebas
 

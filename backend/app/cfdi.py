@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from .auth import require_roles
 from .db import get_db
-from .models import CfdiDocumentORM
+from .models import CfdiDocumentORM, TaxConfigORM
 from .storage import upload_bytes
 
 
@@ -38,6 +38,11 @@ class CfdiResponse(BaseModel):
     xml_url: str
     pdf_url: str
     status: str = "generated"
+
+
+class TaxConfig(BaseModel):
+    rfc: str
+    provider: str | None = None
 
 
 def _build_xml(uuid: str, customer: str, items: list[Item], total: float) -> bytes:
@@ -98,6 +103,34 @@ def _serve_url(url: str, filename: str, media_type: str):
     return RedirectResponse(url)
 
 
+@router.get("/config", response_model=TaxConfig)
+def get_tax_config(
+    db: Session = Depends(get_db),
+    claims: dict = Depends(require_roles(["admin"])),
+):
+    row = db.get(TaxConfigORM, 1)
+    if not row:
+        raise HTTPException(status_code=404, detail="config_not_found")
+    return TaxConfig(rfc=row.rfc, provider=row.provider)
+
+
+@router.post("/config", response_model=TaxConfig)
+def set_tax_config(
+    payload: TaxConfig,
+    db: Session = Depends(get_db),
+    claims: dict = Depends(require_roles(["admin"])),
+):
+    row = db.get(TaxConfigORM, 1)
+    if not row:
+        row = TaxConfigORM(id=1, rfc=payload.rfc, provider=payload.provider)
+    else:
+        row.rfc = payload.rfc
+        row.provider = payload.provider
+    db.add(row)
+    db.commit()
+    return payload
+
+
 @router.post("/", response_model=CfdiResponse)
 def generate_cfdi(
     payload: CfdiRequest,
@@ -140,3 +173,15 @@ def download_cfdi(
     media_type = "application/xml" if file == "xml" else "application/pdf"
     filename = f"{cfdi_uuid}.{file}"
     return _serve_url(url, filename, media_type)
+
+
+@router.post("/process-pending", response_model=dict)
+def process_pending_cfdi(
+    limit: int = 10,
+    db: Session = Depends(get_db),
+    claims: dict = Depends(require_roles(["admin"])),
+):
+    from .cfdi_queue import process_cfdi_queue
+
+    processed = process_cfdi_queue(db, limit)
+    return {"processed": processed}

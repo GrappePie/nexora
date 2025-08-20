@@ -92,6 +92,32 @@ class CfdiDocumentORM(Base):
     )
 
 
+class CfdiPendingORM(Base):
+    __tablename__ = "cfdi_pending"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=lambda: uuid4().hex)
+    quote_id: Mapped[str] = mapped_column(String(32), nullable=False)
+    customer: Mapped[str] = mapped_column(String(255), nullable=False)
+    total: Mapped[float] = mapped_column(Float, nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    last_error: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, default=lambda: datetime.now(timezone.utc)
+    )
+
+
+class TaxConfigORM(Base):
+    __tablename__ = "tax_config"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    rfc: Mapped[str] = mapped_column(String(64), nullable=False)
+    provider: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, default=lambda: datetime.now(timezone.utc)
+    )
+
+
 class SubscriptionORM(Base):
     __tablename__ = "subscriptions"
 
