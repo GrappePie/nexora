@@ -7,6 +7,7 @@ from jose import jwt
 
 from backend.app.main import app, engine
 from backend.app.auth import SECRET, ALGO
+from backend.app import billing
 
 client = TestClient(app)
 
@@ -143,3 +144,99 @@ def test_webhook_invalid_signature(monkeypatch):
         content=b"{}",
     )
     assert r.status_code == 400
+
+
+def test_webhook_mercadopago_updates_status(monkeypatch):
+    os.environ["BILLING_PROVIDER"] = "mercadopago"
+
+    class DummyProvider:
+        name = "mercadopago"
+        webhook_secret = "mp_secret"
+
+        def validate_webhook(self, payload, sig_header):
+            import json
+
+            if sig_header != self.webhook_secret:
+                raise ValueError("invalid_signature")
+            return json.loads(payload.decode())
+
+        def parse_event(self, event):
+            data = event.get("data", {}) or {}
+            return data.get("id"), "cancelled"
+
+    monkeypatch.setattr(billing, "get_billing_provider", lambda: DummyProvider())
+
+    sub_id = "mp_sub_1"
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "INSERT INTO subscriptions (customer_id, plan_id, provider, provider_subscription_id, status) "
+                "VALUES ('c_mp', 'plan_basic', 'mercadopago', :id, 'active')"
+            ),
+            {"id": sub_id},
+        )
+
+    event = {"type": "subscription_preapproval_cancelled", "data": {"id": sub_id}}
+    r = client.post(
+        "/portal/api/billing/webhook",
+        headers={"x-signature": "mp_secret"},
+        json=event,
+    )
+    assert r.status_code == 200
+
+    with engine.begin() as conn:
+        row = conn.execute(
+            text(
+                "SELECT status FROM subscriptions WHERE provider_subscription_id=:id"
+            ),
+            {"id": sub_id},
+        ).first()
+        assert row.status == "cancelled"
+
+
+def test_webhook_paddle_updates_status(monkeypatch):
+    os.environ["BILLING_PROVIDER"] = "paddle"
+
+    class DummyProvider:
+        name = "paddle"
+        webhook_secret = "pd_secret"
+
+        def validate_webhook(self, payload, sig_header):
+            import json
+
+            if sig_header != self.webhook_secret:
+                raise ValueError("invalid_signature")
+            return json.loads(payload.decode())
+
+        def parse_event(self, event):
+            data = event.get("data", {}) or {}
+            return data.get("id"), data.get("status", "active")
+
+    monkeypatch.setattr(billing, "get_billing_provider", lambda: DummyProvider())
+
+    sub_id = "pd_sub_1"
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "INSERT INTO subscriptions (customer_id, plan_id, provider, provider_subscription_id, status) "
+                "VALUES ('c_pd', 'plan_basic', 'paddle', :id, 'active')"
+            ),
+            {"id": sub_id},
+        )
+
+    event = {"data": {"id": sub_id, "status": "paused"}}
+    r = client.post(
+        "/portal/api/billing/webhook",
+        headers={"x-signature": "pd_secret"},
+        json=event,
+    )
+    assert r.status_code == 200
+
+    with engine.begin() as conn:
+        row = conn.execute(
+            text(
+                "SELECT status FROM subscriptions WHERE provider_subscription_id=:id"
+            ),
+            {"id": sub_id},
+        ).first()
+        assert row.status == "paused"
