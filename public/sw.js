@@ -5,6 +5,14 @@ const STORE_NAME = 'queue';
 const MAX_RETRIES = 5;
 const BASE_DELAY = 1000; // 1s
 const MAX_DELAY = 60000; // 1m
+const VALID_TYPES = new Set([
+  'quotes',
+  'evidences',
+  'approve/confirm',
+  'auth/forgot-password',
+  'auth/reset-password',
+  'cfdi',
+]);
 
 export function openDB() {
   return new Promise((resolve, reject) => {
@@ -93,7 +101,9 @@ export async function processQueue(type) {
 function handleSync(tag) {
   if (tag && tag.startsWith('sync-')) {
     const type = tag.replace('sync-', '');
-    return processQueue(type);
+    if (VALID_TYPES.has(type)) {
+      return processQueue(type);
+    }
   }
 }
 
@@ -103,7 +113,7 @@ self.addEventListener('sync', event => {
 
 self.addEventListener('message', event => {
   const data = event.data || {};
-  if (data.action === 'processQueue' && data.type) {
+  if (data.action === 'processQueue' && data.type && VALID_TYPES.has(data.type)) {
     event.waitUntil(processQueue(data.type));
   }
 });
@@ -111,7 +121,7 @@ self.addEventListener('message', event => {
 self.addEventListener('push', event => {
   try {
     const data = event.data?.json();
-    if (data?.type) {
+    if (data?.type && VALID_TYPES.has(data.type)) {
       event.waitUntil(processQueue(data.type));
     }
   } catch {}
