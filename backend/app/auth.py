@@ -12,7 +12,7 @@ from jose import jwt, JWTError
 from sqlalchemy.orm import Session
 from sqlalchemy import select, func
 from .db import get_db
-from .models import UserORM
+from .models import UserORM, RoleORM
 from .email import send_email
 
 SECRET = os.getenv("JWT_SECRET", "dev_secret_change_me")
@@ -36,6 +36,16 @@ class LoginRequest(BaseModel):
 class SignupRequest(BaseModel):
     email: EmailStr
     password: str
+    roles: list[str] | None = None
+
+
+class RoleRequest(BaseModel):
+    email: EmailStr
+    role: str
+
+
+class RolesResponse(BaseModel):
+    roles: list[str]
 
 class LoginResponse(BaseModel):
     access_token: str
@@ -98,6 +108,14 @@ def require_roles(required: list[str]):
     return _verify
 
 
+def require_auth(credentials: HTTPAuthorizationCredentials = Depends(bearer)):
+    """Ensure request contains a valid JWT and return its claims."""
+    if not credentials:
+        raise HTTPException(status_code=401, detail="unauthorized")
+    token = credentials.credentials
+    return decode_access_token(token)
+
+
 @router.post("/login", response_model=LoginResponse)
 def login(payload: LoginRequest, db: Session = Depends(get_db)):
     logger.info("login attempt for %s", payload.email)
@@ -117,7 +135,19 @@ def signup(payload: SignupRequest, db: Session = Depends(get_db)):
     existing = db.execute(stmt).scalar_one_or_none()
     if existing:
         raise HTTPException(status_code=400, detail="user_exists")
-    user = UserORM(email=payload.email.lower(), hashed_password=hash_password(payload.password))
+    desired_roles = payload.roles or ["user"]
+    role_objs: list[RoleORM] = []
+    for name in desired_roles:
+        role = db.execute(select(RoleORM).where(RoleORM.name == name)).scalar_one_or_none()
+        if not role:
+            role = RoleORM(name=name)
+            db.add(role)
+        role_objs.append(role)
+    user = UserORM(
+        email=payload.email.lower(),
+        hashed_password=hash_password(payload.password),
+        roles=role_objs,
+    )
     db.add(user)
     db.commit()
     roles = [r.name for r in user.roles]
@@ -134,6 +164,49 @@ def refresh(credentials: HTTPAuthorizationCredentials = Depends(bearer)):
     roles = claims.get("roles", [])
     new_token, exp = create_access_token(claims.get("sub", ""), roles)
     return LoginResponse(access_token=new_token, exp=exp, roles=roles)
+
+
+@router.get("/roles", response_model=RolesResponse)
+def get_roles(claims: dict = Depends(require_auth)):
+    roles = claims.get("roles", [])
+    return RolesResponse(roles=roles)
+
+
+@router.post("/roles", response_model=RolesResponse)
+def add_role(
+    payload: RoleRequest,
+    db: Session = Depends(get_db),
+    claims: dict = Depends(require_roles(["admin"])),
+):
+    stmt = select(UserORM).where(func.lower(UserORM.email) == payload.email.lower())
+    user = db.execute(stmt).scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="user_not_found")
+    role = db.execute(select(RoleORM).where(RoleORM.name == payload.role)).scalar_one_or_none()
+    if not role:
+        role = RoleORM(name=payload.role)
+        db.add(role)
+    if role not in user.roles:
+        user.roles.append(role)
+    db.commit()
+    return RolesResponse(roles=[r.name for r in user.roles])
+
+
+@router.delete("/roles", response_model=RolesResponse)
+def remove_role(
+    payload: RoleRequest,
+    db: Session = Depends(get_db),
+    claims: dict = Depends(require_roles(["admin"])),
+):
+    stmt = select(UserORM).where(func.lower(UserORM.email) == payload.email.lower())
+    user = db.execute(stmt).scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="user_not_found")
+    role = db.execute(select(RoleORM).where(RoleORM.name == payload.role)).scalar_one_or_none()
+    if role and role in user.roles:
+        user.roles.remove(role)
+    db.commit()
+    return RolesResponse(roles=[r.name for r in user.roles])
 
 
 class ForgotPasswordRequest(BaseModel):

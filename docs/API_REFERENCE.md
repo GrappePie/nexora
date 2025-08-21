@@ -21,6 +21,16 @@ Endpoints actuales en el código, listos para pruebas E2E.
   - Body: `{ "email": string, "password": string }`
   - Resp: `{ "access_token": string, "token_type": "bearer", "exp": number, "roles": string[] }`
   - Nota: usuario demo `admin@example.com` / `admin`.
+- `POST /auth/signup`
+  - Body: `{ "email": string, "password": string, "roles?": string[] }`
+  - Resp: `{ "access_token": string, "token_type": "bearer", "exp": number, "roles": string[] }`
+  - Nota: si no se especifican roles se asigna automáticamente `user`.
+- `GET /auth/roles`
+  - Requiere token. Devuelve `{ "roles": string[] }` del usuario autenticado.
+- `POST /auth/roles`
+  - Solo admin. Body: `{ "email": string, "role": string }` → agrega rol y responde `{ "roles": string[] }`.
+- `DELETE /auth/roles`
+  - Solo admin. Body: `{ "email": string, "role": string }` → quita rol y responde `{ "roles": string[] }`.
 - `GET /quotes/` → lista de cotizaciones (in‑memory stub)
 - `POST /quotes/`
   - Body: `{ "customer": string, "total": number }`

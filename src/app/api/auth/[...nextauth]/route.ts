@@ -8,6 +8,19 @@ type ExtendedToken = JWT & { accessToken?: string; exp?: number; roles?: string[
 
 enum AuthProviderName { Credentials = 'Credentials' }
 
+async function fetchRoles(accessToken: string): Promise<string[]> {
+  const base =
+    process.env.BACKEND_API_BASE ||
+    process.env.NEXT_PUBLIC_API_BASE ||
+    'http://localhost:8000'
+  const url = `${base.replace(/\/$/, '')}/auth/roles`
+  const resp = await fetch(url, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  })
+  const data = (await resp.json().catch(() => null)) as { roles?: string[] } | null
+  return Array.isArray(data?.roles) ? (data!.roles as string[]) : []
+}
+
 export const authOptions: AuthOptions = {
   providers: [
     CredentialsProvider({
@@ -51,9 +64,9 @@ export const authOptions: AuthOptions = {
       if (user) {
         const u = user as unknown as AppUser
         t.accessToken = u.accessToken
-        t.roles = u.roles
         t.exp = u.exp
-      } else if (t.exp && Date.now() / 1000 > t.exp - 60 && t.accessToken) {
+      }
+      if (t.exp && Date.now() / 1000 > t.exp - 60 && t.accessToken) {
         const base =
           process.env.BACKEND_API_BASE ||
           process.env.NEXT_PUBLIC_API_BASE ||
@@ -68,9 +81,11 @@ export const authOptions: AuthOptions = {
           if (data?.access_token) {
             t.accessToken = data.access_token
             t.exp = data.exp
-            t.roles = data.roles
           }
         }
+      }
+      if (t.accessToken) {
+        t.roles = await fetchRoles(t.accessToken)
       }
       return token
     },
