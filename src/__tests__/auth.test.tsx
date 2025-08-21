@@ -10,12 +10,18 @@ afterEach(() => {
 describe('nextauth auth flow', () => {
   it('refreshes token when expired', async () => {
     const jwtCb = authOptions.callbacks?.jwt as any
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ access_token: 'new', exp: 2, roles: ['user'] }),
-    }) as any
+    global.fetch = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ access_token: 'new', exp: 2 }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ roles: ['user'] }),
+      }) as any
     const expired = Math.floor(Date.now() / 1000) - 10
-    const tok = await jwtCb({ token: { accessToken: 'old', exp: expired, roles: ['user'] } })
+    const tok = await jwtCb({ token: { accessToken: 'old', exp: expired } })
     expect(tok.accessToken).toBe('new')
     expect(tok.roles).toEqual(['user'])
   })
