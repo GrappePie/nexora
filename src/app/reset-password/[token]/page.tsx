@@ -14,14 +14,18 @@ export default function ResetPasswordPage() {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
-    try {
-      await fetch('/api/auth/reset-password', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ token, password }),
-      })
-    } catch {
+    if (!navigator.onLine) {
       await enqueueOperation('auth/reset-password', { token, password })
+    } else {
+      try {
+        await fetch('/api/auth/reset-password', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ token, password }),
+        })
+      } catch {
+        await enqueueOperation('auth/reset-password', { token, password })
+      }
     }
     setDone(true)
   }

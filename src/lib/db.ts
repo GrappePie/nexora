@@ -1,11 +1,22 @@
 const DB_NAME = 'nexora-db';
 const STORE_NAME = 'queue';
 
+export const QUEUE_TAGS = [
+  'quotes',
+  'evidences',
+  'approve/confirm',
+  'auth/forgot-password',
+  'auth/reset-password',
+  'cfdi',
+];
+
+export type QueueType = (typeof QUEUE_TAGS)[number];
+
 export interface QueueItem {
-  id?: number;
-  type: string;
-  payload: unknown;
-  retry?: number;
+  id?: number
+  type: QueueType
+  payload: unknown
+  retry?: number
 }
 
 type SyncCapableRegistration = ServiceWorkerRegistration & {
@@ -26,7 +37,7 @@ function openDB(): Promise<IDBDatabase> {
   });
 }
 
-export async function enqueueOperation(type: string, payload: unknown): Promise<void> {
+export async function enqueueOperation(type: QueueType, payload: unknown): Promise<void> {
   const db = await openDB();
   const tx = db.transaction(STORE_NAME, 'readwrite');
   tx.objectStore(STORE_NAME).add({ type, payload, retry: 0 });
@@ -44,7 +55,7 @@ export async function enqueueOperation(type: string, payload: unknown): Promise<
   }
 }
 
-export async function getQueue(type: string): Promise<QueueItem[]> {
+export async function getQueue(type: QueueType): Promise<QueueItem[]> {
   const db = await openDB();
   const tx = db.transaction(STORE_NAME, 'readonly');
   const req = tx.objectStore(STORE_NAME).getAll();
@@ -63,5 +74,12 @@ export async function clearQueue(): Promise<void> {
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });
+}
+
+export async function processQueue(type: QueueType): Promise<void> {
+  if ('serviceWorker' in navigator) {
+    const reg = await navigator.serviceWorker.ready;
+    reg.active?.postMessage({ action: 'processQueue', type });
+  }
 }
 

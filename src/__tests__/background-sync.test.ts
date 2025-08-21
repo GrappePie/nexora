@@ -51,5 +51,15 @@ describe('background sync queue', () => {
     items = await getQueue('quotes');
     expect(items).toHaveLength(0);
   });
+
+  it('drops operation after max retries', async () => {
+    await enqueueOperation('quotes', { id: 4 });
+    global.fetch = vi.fn(() => Promise.reject(new Error('offline')));
+    for (let i = 0; i < 5; i++) {
+      await processQueue('quotes');
+    }
+    const items = await getQueue('quotes');
+    expect(items).toHaveLength(0);
+  });
 });
 

@@ -5,7 +5,7 @@ const STORE_NAME = 'queue';
 const MAX_RETRIES = 5;
 const BASE_DELAY = 1000; // 1s
 const MAX_DELAY = 60000; // 1m
-const VALID_TYPES = new Set([
+export const VALID_TYPES = new Set([
   'quotes',
   'evidences',
   'approve/confirm',

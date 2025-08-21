@@ -1,9 +1,13 @@
 'use client';
 
 import { useEffect } from 'react';
+import { QUEUE_TAGS, processQueue } from '@/lib/db';
 
 export function ServiceWorker() {
   useEffect(() => {
+    const onOnline = () => {
+      QUEUE_TAGS.forEach(t => processQueue(t));
+    };
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker
         .register('/sw.js', { type: 'module' })
@@ -11,20 +15,16 @@ export function ServiceWorker() {
           const regWithSync = registration as unknown as {
             sync?: { register: (tag: string) => Promise<void> };
           };
-          const tags = [
-            'quotes',
-            'evidences',
-            'approve/confirm',
-            'auth/forgot-password',
-            'auth/reset-password',
-            'cfdi',
-          ];
-          tags.forEach(tag => {
+          QUEUE_TAGS.forEach(tag => {
             regWithSync.sync?.register(`sync-${tag}`).catch(() => {});
           });
         })
         .catch(() => {});
     }
+    window.addEventListener('online', onOnline);
+    return () => {
+      window.removeEventListener('online', onOnline);
+    };
   }, []);
   return null;
 }
