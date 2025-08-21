@@ -121,6 +121,7 @@ class StockORM(Base):
     item: Mapped[str] = mapped_column(String(255), nullable=False)
     quantity: Mapped[int] = mapped_column(Integer, nullable=False)
     unit_price: Mapped[float] = mapped_column(Float, nullable=False)
+    __table_args__ = (Index("idx_stock_item", "item"),)
 
 
 class QuoteItemORM(Base):
@@ -194,6 +195,7 @@ class InvoiceORM(Base):
     created_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True, default=lambda: datetime.now(timezone.utc)
     )
+    __table_args__ = (Index("idx_invoices_customer", "customer"),)
 
 
 class CfdiDocumentORM(Base):
