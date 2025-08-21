@@ -16,6 +16,10 @@
 | `BACKEND_API_BASE`     | `http://localhost:8000`                           | URL base que usa el BFF (API routes de Next.js) para llamar al Core. |
 | `NEXT_PUBLIC_API_BASE` | `http://backend:8000`                              | Alternativa expuesta al front si se llega a consumir directo (evitar en prod; preferir BFF). |
 | `DATABASE_URL`         | `sqlite:///backend.db` o `postgresql+psycopg://nexora:nexora@127.0.0.1:5432/nexora` | URL de conexión de la base de datos usada por el Core. Si no se define, se usa SQLite local. |
+| `LOG_LEVEL`            | `INFO`                                           | Nivel de log (`DEBUG/INFO/WARN/ERROR`). |
+| `METRICS_ENDPOINT`     | `/metrics`                                       | Ruta donde se expone `/metrics` para Prometheus. |
+| `JWT_SECRET`           | `cambia_esto`                                   | Clave para firmar los JWT de autenticación. |
+| `JWT_ALGO`             | `HS256`                                         | Algoritmo usado para firmar los JWT. |
 
 ### Base de datos
 

@@ -3,8 +3,23 @@ from backend.app.main import app
 from sqlalchemy import text
 from backend.app.db import engine
 from datetime import datetime, timezone, timedelta
+from jose import jwt
+from backend.app.auth import SECRET, ALGO
 
 client = TestClient(app)
+
+
+def make_token(roles):
+    now = datetime.now(timezone.utc)
+    return jwt.encode(
+        {
+            "sub": "tester",
+            "roles": roles,
+            "exp": int((now + timedelta(hours=1)).timestamp()),
+        },
+        SECRET,
+        algorithm=ALGO,
+    )
 
 def _expire_token(token: str):
     # Marca el token como expirado en DB
@@ -18,7 +33,12 @@ def _expire_token(token: str):
 def test_create_and_approve_quote():
     # Crear
     payload = {"customer": "ACME", "total": 123.45}
-    r = client.post("/quotes/", json=payload)
+    token = make_token(["user"])
+    r = client.post(
+        "/quotes/",
+        json=payload,
+        headers={"Authorization": f"Bearer {token}"},
+    )
     assert r.status_code == 200, r.text
     data = r.json()
     assert data["customer"] == "ACME"
@@ -27,7 +47,7 @@ def test_create_and_approve_quote():
     assert isinstance(data["token"], str) and len(data["token"]) > 0
 
     # Listar
-    r2 = client.get("/quotes/")
+    r2 = client.get("/quotes/", headers={"Authorization": f"Bearer {token}"})
     assert r2.status_code == 200
     items = r2.json()
     assert any(it["id"] == data["id"] for it in items)
@@ -60,7 +80,12 @@ def test_approve_check_empty_token_returns_400():
 def test_approve_check_accepts_trimmed_token():
     # Crear una nueva cotización
     payload = {"customer": "Trim Inc.", "total": 50.0}
-    r = client.post("/quotes/", json=payload)
+    token = make_token(["user"])
+    r = client.post(
+        "/quotes/",
+        json=payload,
+        headers={"Authorization": f"Bearer {token}"},
+    )
     assert r.status_code == 200
     data = r.json()
 
@@ -74,67 +99,109 @@ def test_approve_check_accepts_trimmed_token():
 
 def test_approve_quote_happy_path_and_idempotent():
     # Crear
-    r = client.post("/quotes/", json={"customer": "Foo", "total": 10})
+    token_user = make_token(["user"])
+    token_admin = make_token(["admin"])
+    r = client.post(
+        "/quotes/",
+        json={"customer": "Foo", "total": 10},
+        headers={"Authorization": f"Bearer {token_user}"},
+    )
     assert r.status_code == 200
     q = r.json()
     assert q["status"] == "pending"
 
     # Aprobar (pending -> approved)
-    r2 = client.post(f"/quotes/{q['id']}/approve")
+    r2 = client.post(
+        f"/quotes/{q['id']}/approve",
+        headers={"Authorization": f"Bearer {token_admin}"},
+    )
     assert r2.status_code == 200
     q2 = r2.json()
     assert q2["status"] == "approved"
 
     # Idempotente (approved -> approved)
-    r3 = client.post(f"/quotes/{q['id']}/approve")
+    r3 = client.post(
+        f"/quotes/{q['id']}/approve",
+        headers={"Authorization": f"Bearer {token_admin}"},
+    )
     assert r3.status_code == 200
     q3 = r3.json()
     assert q3["status"] == "approved"
 
     # Transición inválida (approved -> rejected)
-    r4 = client.post(f"/quotes/{q['id']}/reject")
+    r4 = client.post(
+        f"/quotes/{q['id']}/reject",
+        headers={"Authorization": f"Bearer {token_admin}"},
+    )
     assert r4.status_code == 409
     assert r4.json().get("detail") == "invalid_transition"
 
 
 def test_reject_quote_happy_path_and_idempotent():
     # Crear
-    r = client.post("/quotes/", json={"customer": "Bar", "total": 20})
+    token_user = make_token(["user"])
+    token_admin = make_token(["admin"])
+    r = client.post(
+        "/quotes/",
+        json={"customer": "Bar", "total": 20},
+        headers={"Authorization": f"Bearer {token_user}"},
+    )
     assert r.status_code == 200
     q = r.json()
     assert q["status"] == "pending"
 
     # Rechazar (pending -> rejected)
-    r2 = client.post(f"/quotes/{q['id']}/reject")
+    r2 = client.post(
+        f"/quotes/{q['id']}/reject",
+        headers={"Authorization": f"Bearer {token_admin}"},
+    )
     assert r2.status_code == 200
     q2 = r2.json()
     assert q2["status"] == "rejected"
 
     # Idempotente (rejected -> rejected)
-    r3 = client.post(f"/quotes/{q['id']}/reject")
+    r3 = client.post(
+        f"/quotes/{q['id']}/reject",
+        headers={"Authorization": f"Bearer {token_admin}"},
+    )
     assert r3.status_code == 200
     q3 = r3.json()
     assert q3["status"] == "rejected"
 
     # Transición inválida (rejected -> approved)
-    r4 = client.post(f"/quotes/{q['id']}/approve")
+    r4 = client.post(
+        f"/quotes/{q['id']}/approve",
+        headers={"Authorization": f"Bearer {token_admin}"},
+    )
     assert r4.status_code == 409
     assert r4.json().get("detail") == "invalid_transition"
 
 
 def test_approve_reject_quote_not_found_returns_404():
-    r = client.post("/quotes/NOEXIST/approve")
+    token_admin = make_token(["admin"])
+    r = client.post(
+        "/quotes/NOEXIST/approve",
+        headers={"Authorization": f"Bearer {token_admin}"},
+    )
     assert r.status_code == 404
     assert r.json().get("detail") == "quote_not_found"
 
-    r2 = client.post("/quotes/NOEXIST/reject")
+    r2 = client.post(
+        "/quotes/NOEXIST/reject",
+        headers={"Authorization": f"Bearer {token_admin}"},
+    )
     assert r2.status_code == 404
     assert r2.json().get("detail") == "quote_not_found"
 
 
 def test_approve_confirm_by_token_happy_path_and_idempotent():
     # Crear cotización
-    r = client.post("/quotes/", json={"customer": "Tok", "total": 33.3})
+    token_user = make_token(["user"])
+    r = client.post(
+        "/quotes/",
+        json={"customer": "Tok", "total": 33.3},
+        headers={"Authorization": f"Bearer {token_user}"},
+    )
     assert r.status_code == 200
     q = r.json()
 
@@ -153,10 +220,19 @@ def test_approve_confirm_by_token_happy_path_and_idempotent():
 
 def test_approve_confirm_by_token_invalid_transition_and_errors():
     # Crear y rechazar primero
-    r = client.post("/quotes/", json={"customer": "Tok2", "total": 10})
+    token_user = make_token(["user"])
+    token_admin = make_token(["admin"])
+    r = client.post(
+        "/quotes/",
+        json={"customer": "Tok2", "total": 10},
+        headers={"Authorization": f"Bearer {token_user}"},
+    )
     assert r.status_code == 200
     q = r.json()
-    rrej = client.post(f"/quotes/{q['id']}/reject")
+    rrej = client.post(
+        f"/quotes/{q['id']}/reject",
+        headers={"Authorization": f"Bearer {token_admin}"},
+    )
     assert rrej.status_code == 200
 
     # Intentar aprobar por token tras reject -> 409
@@ -176,7 +252,12 @@ def test_approve_confirm_by_token_invalid_transition_and_errors():
 
 
 def test_approve_check_with_expired_token_returns_false():
-    r = client.post("/quotes/", json={"customer": "Exp", "total": 1})
+    token_user = make_token(["user"])
+    r = client.post(
+        "/quotes/",
+        json={"customer": "Exp", "total": 1},
+        headers={"Authorization": f"Bearer {token_user}"},
+    )
     assert r.status_code == 200
     q = r.json()
     _expire_token(q["token"])
@@ -189,7 +270,12 @@ def test_approve_check_with_expired_token_returns_false():
 
 
 def test_approve_confirm_with_expired_token_returns_410():
-    r = client.post("/quotes/", json={"customer": "Exp2", "total": 2})
+    token_user = make_token(["user"])
+    r = client.post(
+        "/quotes/",
+        json={"customer": "Exp2", "total": 2},
+        headers={"Authorization": f"Bearer {token_user}"},
+    )
     assert r.status_code == 200
     q = r.json()
     _expire_token(q["token"])
@@ -200,7 +286,12 @@ def test_approve_confirm_with_expired_token_returns_410():
 
 
 def test_rate_limit_on_check_and_confirm():
-    r = client.post("/quotes/", json={"customer": "RL", "total": 3})
+    token_user = make_token(["user"])
+    r = client.post(
+        "/quotes/",
+        json={"customer": "RL", "total": 3},
+        headers={"Authorization": f"Bearer {token_user}"},
+    )
     assert r.status_code == 200
     q = r.json()
 
@@ -222,3 +313,13 @@ def test_rate_limit_on_check_and_confirm():
     assert last2 is not None
     assert last2.status_code == 429
     assert last2.json().get("detail") == "rate_limited"
+
+
+def test_create_quote_missing_fields_returns_422():
+    token = make_token(["user"])
+    r = client.post(
+        "/quotes/",
+        json={"total": 10},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert r.status_code == 422

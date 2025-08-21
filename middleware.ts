@@ -5,7 +5,7 @@ export default withAuth(
   function middleware(req) {
     const roles = (req.nextauth.token?.roles as string[]) || []
     if (!roles.includes('admin')) {
-      return NextResponse.redirect(new URL('/', req.url))
+      return new NextResponse('Forbidden', { status: 403 })
     }
     return NextResponse.next()
   },

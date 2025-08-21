@@ -21,6 +21,16 @@ Endpoints actuales en el código, listos para pruebas E2E.
   - Body: `{ "email": string, "password": string }`
   - Resp: `{ "access_token": string, "token_type": "bearer", "exp": number, "roles": string[] }`
   - Nota: usuario demo `admin@example.com` / `admin`.
+- `POST /auth/signup`
+  - Body: `{ "email": string, "password": string, "roles?": string[] }`
+  - Resp: `{ "access_token": string, "token_type": "bearer", "exp": number, "roles": string[] }`
+  - Nota: si no se especifican roles se asigna automáticamente `user`.
+- `GET /auth/roles`
+  - Requiere token. Devuelve `{ "roles": string[] }` del usuario autenticado.
+- `POST /auth/roles`
+  - Solo admin. Body: `{ "email": string, "role": string }` → agrega rol y responde `{ "roles": string[] }`.
+- `DELETE /auth/roles`
+  - Solo admin. Body: `{ "email": string, "role": string }` → quita rol y responde `{ "roles": string[] }`.
 - `GET /quotes/` → lista de cotizaciones (in‑memory stub)
 - `POST /quotes/`
   - Body: `{ "customer": string, "total": number }`
@@ -28,6 +38,16 @@ Endpoints actuales en el código, listos para pruebas E2E.
 - `POST /quotes/approve-check`
   - Body: `{ "token": string }`
   - Resp: `{ ok: boolean, quote_id?: string }`
+- `GET /customers/` → lista de clientes
+- `POST /customers/` → crea cliente `{ name, rfc, email?, phone? }`
+- `GET /vehicles/` → lista de vehículos
+- `POST /vehicles/` → crea vehículo `{ customer_id, plates, vin?, make?, model?, year? }`
+- `GET /quote-items/` → lista renglones
+- `POST /quote-items/` → crea renglón `{ quote_id, description, qty, unit_price, tax_rate }`
+- `GET /work-orders/` → lista órdenes de trabajo
+- `POST /work-orders/` → crea OT `{ quote_id?, status? }`
+- `GET /attachments/` → lista archivos de OT
+- `POST /attachments/` → crea archivo `{ work_order_id, s3_key }`
 
 ### BFF (Next.js API Routes)
 

@@ -3,6 +3,16 @@
 const DB_NAME = 'nexora-db';
 const STORE_NAME = 'queue';
 const MAX_RETRIES = 5;
+const BASE_DELAY = 1000; // 1s
+const MAX_DELAY = 60000; // 1m
+export const VALID_TYPES = new Set([
+  'quotes',
+  'evidences',
+  'approve/confirm',
+  'auth/forgot-password',
+  'auth/reset-password',
+  'cfdi',
+]);
 
 export function openDB() {
   return new Promise((resolve, reject) => {
@@ -54,6 +64,13 @@ export async function remove(db, id) {
   });
 }
 
+function scheduleRetry(type, attempt) {
+  const backoff = Math.min(BASE_DELAY * 2 ** (attempt - 1), MAX_DELAY);
+  setTimeout(() => {
+    self.registration?.sync?.register(`sync-${type}`);
+  }, backoff);
+}
+
 export async function processQueue(type) {
   const db = await openDB();
   const all = await readAll(db);
@@ -73,10 +90,7 @@ export async function processQueue(type) {
       attempt += 1;
       if (attempt < MAX_RETRIES) {
         await updateRetry(db, item.id, attempt);
-        const backoff = Math.min(1000 * 2 ** (attempt - 1), 60000);
-        setTimeout(() => {
-          self.registration?.sync?.register(`sync-${type}`);
-        }, backoff);
+        scheduleRetry(type, attempt);
       } else {
         await remove(db, item.id);
       }
@@ -84,10 +98,32 @@ export async function processQueue(type) {
   }
 }
 
-self.addEventListener('sync', event => {
-  if (event.tag && event.tag.startsWith('sync-')) {
-    const type = event.tag.replace('sync-', '');
-    event.waitUntil(processQueue(type));
+function handleSync(tag) {
+  if (tag && tag.startsWith('sync-')) {
+    const type = tag.replace('sync-', '');
+    if (VALID_TYPES.has(type)) {
+      return processQueue(type);
+    }
   }
+}
+
+self.addEventListener('sync', event => {
+  event.waitUntil(handleSync(event.tag));
+});
+
+self.addEventListener('message', event => {
+  const data = event.data || {};
+  if (data.action === 'processQueue' && data.type && VALID_TYPES.has(data.type)) {
+    event.waitUntil(processQueue(data.type));
+  }
+});
+
+self.addEventListener('push', event => {
+  try {
+    const data = event.data?.json();
+    if (data?.type && VALID_TYPES.has(data.type)) {
+      event.waitUntil(processQueue(data.type));
+    }
+  } catch {}
 });
 

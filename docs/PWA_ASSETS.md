@@ -20,8 +20,20 @@
 ## Background Sync & IndexedDB
 
 - Las operaciones offline se guardan en IndexedDB (`src/lib/db.ts`).
-- El service worker (`public/sw.js`) registra `background sync` (`sync-operations`) y reintenta cuando vuelve la conexión.
+- Cada operación se etiqueta por tipo (`quotes`, `evidences`, etc.) y se registra `sync-{tipo}`.
+- El service worker (`public/sw.js`) escucha eventos `sync`, `message` y `push` y reintenta con _exponential backoff_ hasta 1 min.
 - Al completarse, la outbox se limpia automáticamente.
+
+## Modo offline
+
+- Las vistas capturan errores de red en `fetch` (POST) y encolan la operación con `enqueueOperation`.
+- Mientras no haya conexión, las acciones quedan pendientes en IndexedDB y el usuario recibe feedback local.
+- Al restablecer la red, `background sync` envía las operaciones pendientes y actualiza el estado.
+
+## Escenarios offline/online probados
+
+- Se simularon fallos de red en `approve/confirm`, `auth/forgot-password` y `auth/reset-password`; las operaciones se encolaron.
+- Al volver la conexión, el service worker procesó las etiquetas `sync-{tipo}` con reintentos escalonados hasta completarlas.
 
 ## Botón "Instalar"
 

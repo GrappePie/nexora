@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useParams } from 'next/navigation'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { enqueueOperation } from '@/lib/db'
 
 export default function ResetPasswordPage() {
   const { token } = useParams<{ token: string }>()
@@ -13,11 +14,19 @@ export default function ResetPasswordPage() {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
-    await fetch('/api/auth/reset-password', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ token, password }),
-    })
+    if (!navigator.onLine) {
+      await enqueueOperation('auth/reset-password', { token, password })
+    } else {
+      try {
+        await fetch('/api/auth/reset-password', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ token, password }),
+        })
+      } catch {
+        await enqueueOperation('auth/reset-password', { token, password })
+      }
+    }
     setDone(true)
   }
 

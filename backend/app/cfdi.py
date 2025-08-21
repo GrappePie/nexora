@@ -1,6 +1,7 @@
-from pydantic import BaseModel
-from datetime import datetime, timezone
 import hashlib
+import logging
+import re
+from datetime import datetime, timezone
 from uuid import uuid4
 from xml.etree.ElementTree import Element, SubElement, tostring
 from urllib.parse import urlparse
@@ -8,15 +9,18 @@ from urllib.request import url2pathname
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse, RedirectResponse
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from .auth import require_roles
 from .db import get_db
-from .models import CfdiDocumentORM
+from .models import CfdiDocumentORM, TaxConfigORM
 from .storage import upload_bytes
 
 
 router = APIRouter(prefix="/cfdi", tags=["cfdi"])
+
+logger = logging.getLogger(__name__)
 
 
 class Item(BaseModel):
@@ -25,8 +29,27 @@ class Item(BaseModel):
     unit_price: float
 
 
+RFC_REGEX = re.compile(r"^[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}$")
+VALID_USOS = {"G01", "G02", "G03", "I01", "I02", "P01"}
+
+
+def validate_rfc(rfc: str) -> str:
+    if not RFC_REGEX.fullmatch(rfc.upper()):
+        raise HTTPException(status_code=400, detail="invalid_rfc")
+    return rfc.upper()
+
+
+def validate_cfdi_use(cfdi_use: str) -> str:
+    cfdi_use = cfdi_use.upper()
+    if cfdi_use not in VALID_USOS:
+        raise HTTPException(status_code=400, detail="invalid_cfdi_use")
+    return cfdi_use
+
+
 class CfdiRequest(BaseModel):
     customer: str
+    rfc: str
+    cfdi_use: str
     items: list[Item]
 
 
@@ -34,16 +57,30 @@ class CfdiResponse(BaseModel):
     uuid: str
     xml_url: str
     pdf_url: str
-    status: str = "generated"
+    status: str = "sent"
 
 
-def _build_xml(uuid: str, customer: str, items: list[Item], total: float) -> bytes:
+class TaxConfig(BaseModel):
+    rfc: str
+    provider: str | None = None
+
+
+def _build_xml(
+    uuid: str,
+    customer: str,
+    items: list[Item],
+    total: float,
+    rfc: str,
+    cfdi_use: str,
+) -> bytes:
     sello = hashlib.sha256(uuid.encode()).hexdigest()
     timbre = hashlib.md5(uuid.encode()).hexdigest()
     root = Element(
         "cfdi",
         uuid=uuid,
         customer=customer,
+        rfc=rfc,
+        uso=cfdi_use,
         total=f"{total:.2f}",
         sello=sello,
         timbre=timbre,
@@ -95,30 +132,66 @@ def _serve_url(url: str, filename: str, media_type: str):
     return RedirectResponse(url)
 
 
+@router.get("/config", response_model=TaxConfig)
+def get_tax_config(
+    db: Session = Depends(get_db),
+    claims: dict = Depends(require_roles(["admin"])),
+):
+    row = db.get(TaxConfigORM, 1)
+    if not row:
+        raise HTTPException(status_code=404, detail="config_not_found")
+    return TaxConfig(rfc=row.rfc, provider=row.provider)
+
+
+@router.post("/config", response_model=TaxConfig)
+def set_tax_config(
+    payload: TaxConfig,
+    db: Session = Depends(get_db),
+    claims: dict = Depends(require_roles(["admin"])),
+):
+    validate_rfc(payload.rfc)
+    row = db.get(TaxConfigORM, 1)
+    if not row:
+        row = TaxConfigORM(id=1, rfc=payload.rfc.upper(), provider=payload.provider)
+    else:
+        row.rfc = payload.rfc.upper()
+        row.provider = payload.provider
+    db.add(row)
+    db.commit()
+    return payload
+
+
 @router.post("/", response_model=CfdiResponse)
 def generate_cfdi(
     payload: CfdiRequest,
     db: Session = Depends(get_db),
     claims: dict = Depends(require_roles(["admin"])),
 ) -> CfdiResponse:
-    uuid = uuid4().hex
-    total = sum(i.quantity * i.unit_price for i in payload.items)
-    xml_content = _build_xml(uuid, payload.customer, payload.items, total)
-    pdf_content = _build_pdf(uuid, payload.customer, total)
-    xml_url = upload_bytes(f"cfdi/{uuid}.xml", xml_content, "application/xml")
-    pdf_url = upload_bytes(f"cfdi/{uuid}.pdf", pdf_content, "application/pdf")
+    logger.info("generate cfdi for %s", payload.customer)
+    try:
+        uuid = uuid4().hex
+        rfc = validate_rfc(payload.rfc)
+        cfdi_use = validate_cfdi_use(payload.cfdi_use)
+        total = sum(i.quantity * i.unit_price for i in payload.items)
+        xml_content = _build_xml(uuid, payload.customer, payload.items, total, rfc, cfdi_use)
+        pdf_content = _build_pdf(uuid, payload.customer, total)
+        xml_url = upload_bytes(f"cfdi/{uuid}.xml", xml_content, "application/xml")
+        pdf_url = upload_bytes(f"cfdi/{uuid}.pdf", pdf_content, "application/pdf")
 
-    row = CfdiDocumentORM(
-        uuid=uuid,
-        customer=payload.customer,
-        total=total,
-        xml_url=xml_url,
-        pdf_url=pdf_url,
-    )
-    db.add(row)
-    db.commit()
-
-    return CfdiResponse(uuid=uuid, xml_url=xml_url, pdf_url=pdf_url)
+        row = CfdiDocumentORM(
+            uuid=uuid,
+            customer=payload.customer,
+            total=total,
+            xml_url=xml_url,
+            pdf_url=pdf_url,
+            status="sent",
+        )
+        db.add(row)
+        db.commit()
+        return CfdiResponse(uuid=uuid, xml_url=xml_url, pdf_url=pdf_url, status="sent")
+    except Exception as exc:  # pragma: no cover
+        logger.exception("cfdi generation failed: %s", exc)
+        raise HTTPException(status_code=502, detail="cfdi_generation_failed")
 
 
 @router.get("/{cfdi_uuid}")
@@ -128,10 +201,32 @@ def download_cfdi(
     db: Session = Depends(get_db),
     claims: dict = Depends(require_roles(["admin"])),
 ):
+    logger.info("download cfdi %s", cfdi_uuid)
     row = db.query(CfdiDocumentORM).filter(CfdiDocumentORM.uuid == cfdi_uuid).first()
     if not row:
         raise HTTPException(status_code=404, detail="cfdi_not_found")
     url = row.xml_url if file == "xml" else row.pdf_url
     media_type = "application/xml" if file == "xml" else "application/pdf"
     filename = f"{cfdi_uuid}.{file}"
-    return _serve_url(url, filename, media_type)
+    try:
+        return _serve_url(url, filename, media_type)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="file_not_found")
+    except Exception as exc:  # pragma: no cover
+        logger.exception("error serving cfdi %s: %s", cfdi_uuid, exc)
+        raise HTTPException(status_code=500, detail="cfdi_unavailable")
+
+
+@router.post("/process-pending", response_model=dict)
+def process_pending_cfdi(
+    limit: int = 10,
+    db: Session = Depends(get_db),
+    claims: dict = Depends(require_roles(["admin"])),
+):
+    from .cfdi_queue import process_cfdi_queue
+    try:
+        processed = process_cfdi_queue(db, limit)
+    except Exception as exc:  # pragma: no cover
+        logger.exception("error processing cfdi queue: %s", exc)
+        raise HTTPException(status_code=500, detail="queue_error")
+    return {"processed": processed}

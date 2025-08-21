@@ -25,6 +25,7 @@ Puedes conectar celulares y tablets al sistema principal mediante códigos QR, f
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — Arquitectura
 - [docs/DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md) — Esquema de base de datos
 - [docs/OPERATIONS.md](docs/OPERATIONS.md) — Operaciones y administración
+- [docs/BILLING_WEBHOOKS.md](docs/BILLING_WEBHOOKS.md) — Webhooks de facturación
 - [docs/FAQ.md](docs/FAQ.md) — Preguntas frecuentes
 
 Para información más específica, consulta los archivos en la carpeta docs.
@@ -41,6 +42,7 @@ Guía completa en `docs/`:
 - **DNS + Cloudflare Tunnel** → [docs/DNS\_TUNNEL.md](docs/DNS_TUNNEL.md)
 - **Seguridad** → [docs/SECURITY.md](docs/SECURITY.md)
 - **Licenciamiento** → [docs/LICENSING.md](docs/LICENSING.md)
+- **Webhooks de facturación** → [docs/BILLING_WEBHOOKS.md](docs/BILLING_WEBHOOKS.md)
 - **Operación** → [docs/OPERATIONS.md](docs/OPERATIONS.md)
 - **Backups / Restore** → [docs/BACKUP\_RESTORE.md](docs/BACKUP_RESTORE.md)
 - **Assets PWA (manifest/íconos)** → [docs/PWA\_ASSETS.md](docs/PWA_ASSETS.md)

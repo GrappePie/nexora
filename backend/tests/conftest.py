@@ -34,6 +34,34 @@ try:
     command.upgrade(cfg, 'head')
 except Exception as _e:
     print(f"[WARN] Alembic upgrade skipped or failed: {_e}")
+    try:
+        if os.path.exists(DB_PATH):
+            os.remove(DB_PATH)
+    except Exception:
+        pass
+finally:
+    try:
+        from backend.app.db import Base, engine, SessionLocal  # type: ignore
+        from backend.app import models  # noqa: F401
+        from backend.app.auth import hash_password  # type: ignore
+        Base.metadata.create_all(bind=engine)
+        with SessionLocal() as db:
+            if not db.query(models.RoleORM).filter_by(name="admin").first():
+                db.add(models.RoleORM(name="admin"))
+            if not db.query(models.RoleORM).filter_by(name="user").first():
+                db.add(models.RoleORM(name="user"))
+            db.commit()
+            if not db.query(models.UserORM).filter_by(email="admin@example.com").first():
+                admin = models.UserORM(
+                    email="admin@example.com",
+                    hashed_password=hash_password("admin"),
+                    is_verified=True,
+                )
+                admin.roles = [r for r in db.query(models.RoleORM).all() if r.name == "admin"]
+                db.add(admin)
+                db.commit()
+    except Exception:
+        pass
 
 # Limpiar rate limiter entre pruebas
 import pytest
