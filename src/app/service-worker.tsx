@@ -12,8 +12,8 @@ export function ServiceWorker() {
             sync?: { register: (tag: string) => Promise<void> };
           };
           const tags = [
-            'cotizaciones',
-            'evidencias',
+            'quotes',
+            'evidences',
             'approve/confirm',
             'auth/forgot-password',
             'auth/reset-password',

@@ -20,7 +20,7 @@
 ## Background Sync & IndexedDB
 
 - Las operaciones offline se guardan en IndexedDB (`src/lib/db.ts`).
-- Cada operación se etiqueta por tipo (`cotizaciones`, `evidencias`, etc.) y se registra `sync-{tipo}`.
+- Cada operación se etiqueta por tipo (`quotes`, `evidences`, etc.) y se registra `sync-{tipo}`.
 - El service worker (`public/sw.js`) escucha eventos `sync`, `message` y `push` y reintenta con _exponential backoff_ hasta 1 min.
 - Al completarse, la outbox se limpia automáticamente.
 
