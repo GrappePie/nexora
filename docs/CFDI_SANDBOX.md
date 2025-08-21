@@ -53,6 +53,30 @@ curl -L http://localhost:8000/cfdi/<UUID>?file=xml
 - Receptor **público en general** (ejemplo): `XAXX010101000`.
 - Extranjero (cuando aplique): `XEXX010101000`.
 
+## Pruebas automatizadas
+
+1. Configurar entorno de sandbox:
+
+   ```bash
+   export PAC_PROVIDER=sandbox
+   export PAC_USER=demo
+   export PAC_PASS=demo
+   export REDIS_URL=""
+   ```
+
+   Si `REDIS_URL` está vacío, se utiliza **fakeredis** para la cola.
+
+2. Ejecutar los tests:
+
+   ```bash
+   pytest backend/tests/test_cfdi_async.py backend/tests/test_cfdi_queue_retry.py
+   ```
+
+### Resultados esperados
+
+- `test_cfdi_async.py` aprueba una cotización, genera XML/PDF y cambia el estado de `pending` a `sent`.
+- `test_cfdi_queue_retry.py` fuerza errores hasta agotar `CFDI_MAX_ATTEMPTS` y marca el registro como `failed`.
+
 ## Para producción (más adelante)
 
 - Validaciones CFDI 4.0 (domicilio fiscal receptor, uso CFDI válido, etc.).

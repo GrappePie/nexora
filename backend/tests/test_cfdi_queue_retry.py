@@ -9,6 +9,9 @@ def test_cfdi_queue_marks_failed_after_max_attempts(tmp_path, monkeypatch):
     monkeypatch.setenv("S3_ENDPOINT", "")
     monkeypatch.setenv("S3_LOCAL_DIR", str(tmp_path))
     monkeypatch.setenv("REDIS_URL", "")
+    monkeypatch.setenv("PAC_PROVIDER", "sandbox")
+    monkeypatch.setenv("PAC_USER", "demo")
+    monkeypatch.setenv("PAC_PASS", "demo")
     cfdi_queue.redis_client = cfdi_queue._get_redis()
     cfdi_queue.MAX_ATTEMPTS = 2
     cfdi_queue._local_queue.clear()

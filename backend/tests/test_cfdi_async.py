@@ -1,4 +1,6 @@
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from urllib.parse import urlparse
 
 from fastapi.testclient import TestClient
 from jose import jwt
@@ -24,6 +26,9 @@ def test_quote_approval_enqueue_and_process(tmp_path, monkeypatch):
     monkeypatch.setenv("S3_ENDPOINT", "")
     monkeypatch.setenv("S3_LOCAL_DIR", str(tmp_path))
     monkeypatch.setenv("REDIS_URL", "")
+    monkeypatch.setenv("PAC_PROVIDER", "sandbox")
+    monkeypatch.setenv("PAC_USER", "demo")
+    monkeypatch.setenv("PAC_PASS", "demo")
     cfdi_queue.redis_client = cfdi_queue._get_redis()
     cfdi_queue._local_queue.clear()
 
@@ -52,3 +57,7 @@ def test_quote_approval_enqueue_and_process(tmp_path, monkeypatch):
         assert pending2.status == "sent"
         doc = db.query(CfdiDocumentORM).filter(CfdiDocumentORM.customer == "ACME").first()
         assert doc is not None
+        xml_path = Path(urlparse(doc.xml_url).path)
+        pdf_path = Path(urlparse(doc.pdf_url).path)
+        assert xml_path.exists()
+        assert pdf_path.exists()
