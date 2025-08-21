@@ -26,13 +26,15 @@ def test_generate_cfdi(tmp_path, monkeypatch):
     headers = _auth_headers()
     payload = {
         "customer": "ACME",
+        "rfc": "XAXX010101000",
+        "cfdi_use": "P01",
         "items": [{"description": "Servicio", "quantity": 1, "unit_price": 100.0}],
     }
     resp = client.post("/cfdi/", json=payload, headers=headers)
     assert resp.status_code == 200
     data = resp.json()
     assert data["uuid"]
-    assert data["status"] == "generated"
+    assert data["status"] == "sent"
     assert data["xml_url"].startswith("file://")
     assert data["pdf_url"].startswith("file://")
 

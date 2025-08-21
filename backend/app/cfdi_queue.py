@@ -9,7 +9,13 @@ from sqlalchemy.orm import Session
 
 from .models import CfdiPendingORM, CfdiDocumentORM
 from .storage import upload_bytes
-from .cfdi import _build_xml, _build_pdf, Item
+from .cfdi import (
+    _build_xml,
+    _build_pdf,
+    Item,
+    validate_rfc,
+    validate_cfdi_use,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -67,8 +73,23 @@ def _dequeue():
     return None
 
 
-def enqueue_cfdi_draft(db: Session, quote_id: str, customer: str, total: float) -> str:
-    row = CfdiPendingORM(quote_id=quote_id, customer=customer, total=total)
+def enqueue_cfdi_draft(
+    db: Session,
+    quote_id: str,
+    customer: str,
+    total: float,
+    rfc: str = "XAXX010101000",
+    cfdi_use: str = "P01",
+) -> str:
+    rfc = validate_rfc(rfc)
+    cfdi_use = validate_cfdi_use(cfdi_use)
+    row = CfdiPendingORM(
+        quote_id=quote_id,
+        customer=customer,
+        total=total,
+        rfc=rfc,
+        cfdi_use=cfdi_use,
+    )
     db.add(row)
     db.commit()
     _enqueue({"pending_id": row.id})
@@ -84,12 +105,22 @@ def process_cfdi_queue(db: Session, limit: int = 10) -> int:
         pending = db.get(CfdiPendingORM, job["pending_id"])
         if not pending or pending.status != "pending":
             continue
+        pending.status = "processing"
         pending.attempts += 1
         pending.updated_at = datetime.now(timezone.utc)
+        db.add(pending)
+        db.commit()
         try:
             uuid = uuid4().hex
             item = Item(description="Servicio", quantity=1, unit_price=pending.total)
-            xml_content = _build_xml(uuid, pending.customer, [item], pending.total)
+            xml_content = _build_xml(
+                uuid,
+                pending.customer,
+                [item],
+                pending.total,
+                pending.rfc,
+                pending.cfdi_use,
+            )
             pdf_content = _build_pdf(uuid, pending.customer, pending.total)
             xml_url = upload_bytes(f"cfdi/{uuid}.xml", xml_content, "application/xml")
             pdf_url = upload_bytes(f"cfdi/{uuid}.pdf", pdf_content, "application/pdf")
@@ -99,6 +130,7 @@ def process_cfdi_queue(db: Session, limit: int = 10) -> int:
                 total=pending.total,
                 xml_url=xml_url,
                 pdf_url=pdf_url,
+                status="sent",
             )
             db.add(doc)
             pending.status = "sent"
@@ -121,6 +153,7 @@ def process_cfdi_queue(db: Session, limit: int = 10) -> int:
                     pending.attempts,
                     exc,
                 )
+                pending.status = "pending"
                 db.add(pending)
                 db.commit()
                 delay = min(60, 2 ** pending.attempts)

@@ -1,5 +1,6 @@
 import hashlib
 import logging
+import re
 from datetime import datetime, timezone
 from uuid import uuid4
 from xml.etree.ElementTree import Element, SubElement, tostring
@@ -28,8 +29,27 @@ class Item(BaseModel):
     unit_price: float
 
 
+RFC_REGEX = re.compile(r"^[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}$")
+VALID_USOS = {"G01", "G02", "G03", "I01", "I02", "P01"}
+
+
+def validate_rfc(rfc: str) -> str:
+    if not RFC_REGEX.fullmatch(rfc.upper()):
+        raise HTTPException(status_code=400, detail="invalid_rfc")
+    return rfc.upper()
+
+
+def validate_cfdi_use(cfdi_use: str) -> str:
+    cfdi_use = cfdi_use.upper()
+    if cfdi_use not in VALID_USOS:
+        raise HTTPException(status_code=400, detail="invalid_cfdi_use")
+    return cfdi_use
+
+
 class CfdiRequest(BaseModel):
     customer: str
+    rfc: str
+    cfdi_use: str
     items: list[Item]
 
 
@@ -37,7 +57,7 @@ class CfdiResponse(BaseModel):
     uuid: str
     xml_url: str
     pdf_url: str
-    status: str = "generated"
+    status: str = "sent"
 
 
 class TaxConfig(BaseModel):
@@ -45,13 +65,22 @@ class TaxConfig(BaseModel):
     provider: str | None = None
 
 
-def _build_xml(uuid: str, customer: str, items: list[Item], total: float) -> bytes:
+def _build_xml(
+    uuid: str,
+    customer: str,
+    items: list[Item],
+    total: float,
+    rfc: str,
+    cfdi_use: str,
+) -> bytes:
     sello = hashlib.sha256(uuid.encode()).hexdigest()
     timbre = hashlib.md5(uuid.encode()).hexdigest()
     root = Element(
         "cfdi",
         uuid=uuid,
         customer=customer,
+        rfc=rfc,
+        uso=cfdi_use,
         total=f"{total:.2f}",
         sello=sello,
         timbre=timbre,
@@ -120,11 +149,12 @@ def set_tax_config(
     db: Session = Depends(get_db),
     claims: dict = Depends(require_roles(["admin"])),
 ):
+    validate_rfc(payload.rfc)
     row = db.get(TaxConfigORM, 1)
     if not row:
-        row = TaxConfigORM(id=1, rfc=payload.rfc, provider=payload.provider)
+        row = TaxConfigORM(id=1, rfc=payload.rfc.upper(), provider=payload.provider)
     else:
-        row.rfc = payload.rfc
+        row.rfc = payload.rfc.upper()
         row.provider = payload.provider
     db.add(row)
     db.commit()
@@ -140,8 +170,10 @@ def generate_cfdi(
     logger.info("generate cfdi for %s", payload.customer)
     try:
         uuid = uuid4().hex
+        rfc = validate_rfc(payload.rfc)
+        cfdi_use = validate_cfdi_use(payload.cfdi_use)
         total = sum(i.quantity * i.unit_price for i in payload.items)
-        xml_content = _build_xml(uuid, payload.customer, payload.items, total)
+        xml_content = _build_xml(uuid, payload.customer, payload.items, total, rfc, cfdi_use)
         pdf_content = _build_pdf(uuid, payload.customer, total)
         xml_url = upload_bytes(f"cfdi/{uuid}.xml", xml_content, "application/xml")
         pdf_url = upload_bytes(f"cfdi/{uuid}.pdf", pdf_content, "application/pdf")
@@ -152,10 +184,11 @@ def generate_cfdi(
             total=total,
             xml_url=xml_url,
             pdf_url=pdf_url,
+            status="sent",
         )
         db.add(row)
         db.commit()
-        return CfdiResponse(uuid=uuid, xml_url=xml_url, pdf_url=pdf_url)
+        return CfdiResponse(uuid=uuid, xml_url=xml_url, pdf_url=pdf_url, status="sent")
     except Exception as exc:  # pragma: no cover
         logger.exception("cfdi generation failed: %s", exc)
         raise HTTPException(status_code=502, detail="cfdi_generation_failed")

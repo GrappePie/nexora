@@ -1,7 +1,8 @@
-from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import urlparse
+from datetime import datetime, timedelta, timezone
 
+import pytest
 from fastapi.testclient import TestClient
 from jose import jwt
 
@@ -57,7 +58,19 @@ def test_quote_approval_enqueue_and_process(tmp_path, monkeypatch):
         assert pending2.status == "sent"
         doc = db.query(CfdiDocumentORM).filter(CfdiDocumentORM.customer == "ACME").first()
         assert doc is not None
+        assert doc.status == "sent"
         xml_path = Path(urlparse(doc.xml_url).path)
         pdf_path = Path(urlparse(doc.pdf_url).path)
         assert xml_path.exists()
         assert pdf_path.exists()
+
+
+def test_enqueue_invalid_rfc_raises(monkeypatch):
+    monkeypatch.setenv("S3_ENDPOINT", "")
+    monkeypatch.setenv("S3_LOCAL_DIR", "/tmp")
+    monkeypatch.setenv("REDIS_URL", "")
+    cfdi_queue.redis_client = cfdi_queue._get_redis()
+    cfdi_queue._local_queue.clear()
+    with SessionLocal() as db:
+        with pytest.raises(Exception):
+            cfdi_queue.enqueue_cfdi_draft(db, "q1", "ACME", 10.0, rfc="BAD", cfdi_use="P01")
