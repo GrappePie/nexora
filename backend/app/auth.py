@@ -77,9 +77,13 @@ def create_access_token(sub: str, roles: list[str], expires: timedelta | None = 
 def decode_access_token(token: str) -> dict:
     """Decode and validate a JWT, returning its claims."""
     try:
-        return jwt.decode(token, SECRET, algorithms=[ALGO])
+        claims = jwt.decode(token, SECRET, algorithms=[ALGO])
     except JWTError as exc:
         raise HTTPException(status_code=401, detail="invalid_token") from exc
+    roles = claims.get("roles")
+    if not isinstance(roles, list):
+        claims["roles"] = []
+    return claims
 
 
 def hash_password(password: str) -> str:
@@ -156,13 +160,24 @@ def signup(payload: SignupRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/refresh", response_model=LoginResponse)
-def refresh(credentials: HTTPAuthorizationCredentials = Depends(bearer)):
+def refresh(
+    credentials: HTTPAuthorizationCredentials = Depends(bearer),
+    db: Session = Depends(get_db),
+):
     if not credentials:
         raise HTTPException(status_code=401, detail="unauthorized")
     token = credentials.credentials
     claims = decode_access_token(token)
-    roles = claims.get("roles", [])
-    new_token, exp = create_access_token(claims.get("sub", ""), roles)
+    sub = claims.get("sub", "")
+    roles: list[str] = []
+    if sub:
+        stmt = select(UserORM).where(func.lower(UserORM.email) == sub.lower())
+        user = db.execute(stmt).scalar_one_or_none()
+        if user:
+            roles = [r.name for r in user.roles]
+    if not roles:
+        roles = claims.get("roles", [])
+    new_token, exp = create_access_token(sub, roles)
     return LoginResponse(access_token=new_token, exp=exp, roles=roles)
 
 
