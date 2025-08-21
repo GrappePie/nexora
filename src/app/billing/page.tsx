@@ -51,7 +51,8 @@ export default function BillingPage() {
     })
     const data = await resp.json().catch(() => ({}))
     if (resp.ok) {
-      setStatus(data.status)
+      // Refrescar desde el backend para asegurar consistencia
+      await fetchStatus()
     } else {
       setStatus(null)
       setError(data.detail || 'Error')
