@@ -9,10 +9,12 @@
 - **license\_state**: licencia y estado local (modo limitado, última verificación).
 - **users**: credenciales e información de inicio de sesión.
 - **roles**: roles de acceso asignados a usuarios.
-- **stock**: inventario de artículos disponibles.
-- **invoices**: facturas internas asociadas a clientes.
+- **stock**: inventario de artículos (item, quantity, unit\_price).
+- **invoices**: facturas internas (customer, total, created\_at).
 - **cfdi_documents**: CFDI timbrados con enlaces a XML y PDF.
 - **subscriptions**: suscripciones de clientes a planes y proveedor.
+- **tax_config**: configuración fiscal (RFC, proveedor, actualizado).
+- **cfdi_pending**: CFDI pendientes de timbrar (cotización, total, estado, intentos).
 
 ## Relaciones
 
@@ -30,6 +32,8 @@ CREATE INDEX IF NOT EXISTS idx_vehicles_customer ON vehicles (customer_id);
 CREATE INDEX IF NOT EXISTS idx_quotes_customer ON quotes (customer_id);
 CREATE UNIQUE INDEX IF NOT EXISTS ux_quotes_approval_token ON quotes (approval_token);
 CREATE INDEX IF NOT EXISTS idx_attachments_wo ON attachments (work_order_id);
+CREATE INDEX IF NOT EXISTS idx_stock_item ON stock (item);
+CREATE INDEX IF NOT EXISTS idx_invoices_customer ON invoices (customer);
 ```
 
 ## Migraciones (Alembic)
