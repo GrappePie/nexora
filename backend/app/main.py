@@ -15,6 +15,12 @@ from . import cfdi as cfdi_router
 from . import billing as billing_router
 from . import stock as stock_router
 from . import invoice as invoice_router
+from . import customers as customers_router
+from . import vehicles as vehicles_router
+from . import quote_items as quote_items_router
+from . import work_orders as work_orders_router
+from . import attachments as attachments_router
+from . import license_state as license_state_router
 from .db import Base, engine, DATABASE_URL
 
 
@@ -84,3 +90,9 @@ app.include_router(cfdi_router.router)
 app.include_router(billing_router.router)
 app.include_router(stock_router.router)
 app.include_router(invoice_router.router)
+app.include_router(customers_router.router)
+app.include_router(vehicles_router.router)
+app.include_router(quote_items_router.router)
+app.include_router(work_orders_router.router)
+app.include_router(attachments_router.router)
+app.include_router(license_state_router.router)

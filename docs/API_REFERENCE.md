@@ -38,6 +38,16 @@ Endpoints actuales en el código, listos para pruebas E2E.
 - `POST /quotes/approve-check`
   - Body: `{ "token": string }`
   - Resp: `{ ok: boolean, quote_id?: string }`
+- `GET /customers/` → lista de clientes
+- `POST /customers/` → crea cliente `{ name, rfc, email?, phone? }`
+- `GET /vehicles/` → lista de vehículos
+- `POST /vehicles/` → crea vehículo `{ customer_id, plates, vin?, make?, model?, year? }`
+- `GET /quote-items/` → lista renglones
+- `POST /quote-items/` → crea renglón `{ quote_id, description, qty, unit_price, tax_rate }`
+- `GET /work-orders/` → lista órdenes de trabajo
+- `POST /work-orders/` → crea OT `{ quote_id?, status? }`
+- `GET /attachments/` → lista archivos de OT
+- `POST /attachments/` → crea archivo `{ work_order_id, s3_key }`
 
 ### BFF (Next.js API Routes)
 
