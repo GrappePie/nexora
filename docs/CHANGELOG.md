@@ -1,5 +1,11 @@
 Formato basado en *Keep a Changelog*.
 
+## [0.1.4] — 2025-08-21
+
+### Añadido
+- Core (FastAPI): modelos y rutas CRUD para clientes, vehículos, renglones de cotización, órdenes de trabajo, adjuntos y estado de licencia.
+- Migración Alembic para crear tablas e índices relacionados.
+
 ## [0.1.3] — 2025-08-20
 
 ### Añadido
