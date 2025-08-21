@@ -21,6 +21,13 @@ export function ApproveActions({ token, quoteId }: { token: string; quoteId: str
     setBusy(true)
     setMsg(null)
     setOk(null)
+    if (!navigator.onLine) {
+      await enqueueOperation('approve/confirm', { token })
+      setOk(false)
+      setMsg('No se pudo contactar al servicio.')
+      setBusy(false)
+      return
+    }
     try {
       const res = await fetch('/api/approve/confirm', {
         method: 'POST',

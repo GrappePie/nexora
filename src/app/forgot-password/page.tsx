@@ -11,14 +11,18 @@ export default function ForgotPasswordPage() {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
-    try {
-      await fetch('/api/auth/forgot-password', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ email }),
-      })
-    } catch {
+    if (!navigator.onLine) {
       await enqueueOperation('auth/forgot-password', { email })
+    } else {
+      try {
+        await fetch('/api/auth/forgot-password', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ email }),
+        })
+      } catch {
+        await enqueueOperation('auth/forgot-password', { email })
+      }
     }
     setSent(true)
   }
