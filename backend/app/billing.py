@@ -201,6 +201,11 @@ def cancel(
     )
 
 
+def parse_event(provider, event):
+    """Delegar el parseo de eventos al proveedor correspondiente."""
+    return provider.parse_event(event)
+
+
 @router.post("/webhook")
 async def webhook(request: Request, db: Session = Depends(get_db)):
     logger.info("billing webhook")
@@ -216,7 +221,7 @@ async def webhook(request: Request, db: Session = Depends(get_db)):
     except Exception:
         raise HTTPException(status_code=400, detail="invalid_signature")
 
-    sub_id, status = provider.parse_event(event)
+    sub_id, status = parse_event(provider, event)
     if sub_id and status:
         sub = (
             db.query(SubscriptionORM)
