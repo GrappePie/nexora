@@ -73,19 +73,16 @@ const Home: NextPage = () => {
             <h1 className="text-2xl font-bold tracking-wider">NEXORA</h1>
             <nav className="hidden md:flex items-center space-x-8 text-sm">
               <Button asChild variant="link" className="text-gray-300 hover:text-white">
-                <a href="#features">Características</a>
-              </Button>
-              <Button asChild variant="link" className="text-gray-300 hover:text-white">
                 <a href="#product">Producto</a>
               </Button>
               <Button asChild variant="link" className="text-gray-300 hover:text-white">
-                <a href="#pricing">Precios</a>
+                <a href="#features">Características</a>
               </Button>
               <Button asChild variant="link" className="text-gray-300 hover:text-white">
                 <a href="#stack">Stack</a>
               </Button>
               <Button asChild variant="link" className="text-gray-300 hover:text-white">
-                <a href="/docs">Docs</a>
+                <a href="#pricing">Precios</a>
               </Button>
             </nav>
             <div className="flex items-center gap-2">
@@ -104,19 +101,16 @@ const Home: NextPage = () => {
                     <Separator />
                     <div className="flex flex-col gap-2">
                       <Button asChild variant="link" className="justify-start">
-                        <a href="#features">Características</a>
-                      </Button>
-                      <Button asChild variant="link" className="justify-start">
                         <a href="#product">Producto</a>
                       </Button>
                       <Button asChild variant="link" className="justify-start">
-                        <a href="#pricing">Precios</a>
+                        <a href="#features">Características</a>
                       </Button>
                       <Button asChild variant="link" className="justify-start">
                         <a href="#stack">Stack</a>
                       </Button>
                       <Button asChild variant="link" className="justify-start">
-                        <a href="/docs">Docs</a>
+                        <a href="#pricing">Precios</a>
                       </Button>
                     </div>
                     <Separator />
@@ -146,13 +140,9 @@ const Home: NextPage = () => {
               </p>
               <div className="mt-10 flex justify-center items-center space-x-4">
                 <Button size="lg">
-                  Empezar ahora
-                </Button>
-                <Button asChild variant="secondary" size="lg">
-                  <a href="/docs">Ver documentación</a>
+                  <a href="#pricing">Empezar ahora</a>
                 </Button>
               </div>
-              <SearchHero />
             </div>
           </section>
 
