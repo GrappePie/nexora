@@ -1,6 +1,16 @@
 # Webhooks de facturación
 
-El backend expone un único endpoint para recibir eventos de facturación de los proveedores soportados.
+El backend expone endpoints para **gestionar suscripciones** y un único endpoint para recibir eventos de facturación de los proveedores soportados.
+
+## Endpoints de suscripción
+
+- `GET  /portal/api/billing/subscription?customer_id=<id>&plan_id=<id>`
+- `POST /portal/api/billing/subscribe` *(body: `{customer_id, plan_id}`)*
+- `POST /portal/api/billing/cancel` *(body: `{customer_id, plan_id}`)*
+
+La vista `/billing` del portal (React/Next.js) utiliza estos endpoints para dar de alta, cancelar y consultar el estado de las suscripciones.
+
+## Webhook
 
 ```
 POST /portal/api/billing/webhook

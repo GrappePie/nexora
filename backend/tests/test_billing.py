@@ -240,3 +240,31 @@ def test_webhook_paddle_updates_status(monkeypatch):
             {"id": sub_id},
         ).first()
         assert row.status == "paused"
+
+
+def test_get_subscription_endpoint(monkeypatch):
+    os.environ["BILLING_PROVIDER"] = "stripe"
+    os.environ["STRIPE_API_KEY"] = "sk_test"
+
+    monkeypatch.setattr(
+        stripe.Subscription,
+        "create",
+        staticmethod(lambda customer, items: {"id": "sub_get"}),
+    )
+    payload = {"customer_id": "cus_get", "plan_id": "plan_basic"}
+    client.post("/portal/api/billing/subscribe", json=payload, headers=_auth_headers())
+
+    r = client.get(
+        "/portal/api/billing/subscription",
+        params=payload,
+        headers=_auth_headers(),
+    )
+    assert r.status_code == 200
+    assert r.json()["status"] == "active"
+
+    r2 = client.get(
+        "/portal/api/billing/subscription",
+        params={"customer_id": "missing", "plan_id": "plan_basic"},
+        headers=_auth_headers(),
+    )
+    assert r2.status_code == 404
