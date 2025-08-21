@@ -19,14 +19,14 @@ CFDI_MAX_ATTEMPTS=5
 ## Flujo
 
 1. **Config fiscal** (`POST /cfdi/config`)
-    - Guardar RFC y proveedor en DB.
+    - Guardar RFC (valida formato) y proveedor en DB.
 2. **Cotización aprobada → borrador**
     - Al aprobar se guarda en `cfdi_pending` y se encola en Redis.
 3. **Timbrado sandbox** (`POST /cfdi/process-pending`)
     - Procesa la cola, genera XML/PDF y crea `cfdi_documents`.
 4. **Reintentos**
     - Backoff exponencial (`2^n` segundos, máx 60) y hasta `CFDI_MAX_ATTEMPTS`.
-    - Estados: `pending` → `sent` o `failed`.
+    - Estados: `pending` → `processing` → `sent` o `failed`.
 
 ### Ejemplos
 
@@ -39,7 +39,7 @@ curl -X POST http://localhost:8000/cfdi/config \
 # Generar CFDI inmediato
 curl -X POST http://localhost:8000/cfdi/ \
   -H 'content-type: application/json' \
-  -d '{"customer":"ACME","items":[{"description":"Servicio","quantity":1,"unit_price":100}]}'
+  -d '{"customer":"ACME","rfc":"XAXX010101000","cfdi_use":"P01","items":[{"description":"Servicio","quantity":1,"unit_price":100}]}'
 
 # Procesar pendientes (cola)
 curl -X POST http://localhost:8000/cfdi/process-pending
@@ -48,10 +48,11 @@ curl -X POST http://localhost:8000/cfdi/process-pending
 curl -L http://localhost:8000/cfdi/<UUID>?file=xml
 ```
 
-## RFCs y pruebas
+## RFCs, usos y pruebas
 
 - Receptor **público en general** (ejemplo): `XAXX010101000`.
 - Extranjero (cuando aplique): `XEXX010101000`.
+- Usos CFDI válidos en sandbox: `G01`, `G02`, `G03`, `I01`, `I02`, `P01`.
 
 ## Pruebas automatizadas
 

@@ -206,6 +206,7 @@ class CfdiDocumentORM(Base):
     total: Mapped[float] = mapped_column(Float, nullable=False)
     xml_url: Mapped[str] = mapped_column(String(1024), nullable=False)
     pdf_url: Mapped[str] = mapped_column(String(1024), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="sent")
     created_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True, default=lambda: datetime.now(timezone.utc)
     )
@@ -218,6 +219,8 @@ class CfdiPendingORM(Base):
     quote_id: Mapped[str] = mapped_column(String(32), nullable=False)
     customer: Mapped[str] = mapped_column(String(255), nullable=False)
     total: Mapped[float] = mapped_column(Float, nullable=False)
+    rfc: Mapped[str] = mapped_column(String(64), nullable=False, default="XAXX010101000")
+    cfdi_use: Mapped[str] = mapped_column(String(8), nullable=False, default="P01")
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")
     attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     last_error: Mapped[str | None] = mapped_column(String(255), nullable=True)
