@@ -5,11 +5,6 @@
 Nexora POS está diseñado para operar completamente en la red local (LAN), permitiendo la provisión, operación y conexión de dispositivos sin necesidad de Internet. La **única función que requiere acceso online** es la verificación y renovación de la licencia. Si la licencia expira y no puede renovarse online, el sistema entra en modo limitado tras el periodo de gracia.
 
 ## Descripción general
-### Estructura del repositorio
-- `landing/`: sitio público.
-- `pos/`: aplicación transaccional.
-
-
 Nexora POS es un sistema de punto de venta local-first con portal web, diseñado para operar tanto en modo offline como online, permitiendo la gestión eficiente de ventas y operaciones desde una máquina principal y dispositivos móviles conectados.
 
 ## Instalación y despliegue
@@ -31,7 +26,6 @@ Puedes conectar celulares y tablets al sistema principal mediante códigos QR, f
 - [docs/DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md) — Esquema de base de datos
 - [docs/OPERATIONS.md](docs/OPERATIONS.md) — Operaciones y administración
 - [docs/BILLING_WEBHOOKS.md](docs/BILLING_WEBHOOKS.md) — Webhooks de facturación
-- [docs/DOMAINS_SSL.md](docs/DOMAINS_SSL.md) — Dominios y SSL
 - [docs/FAQ.md](docs/FAQ.md) — Preguntas frecuentes
 
 Para información más específica, consulta los archivos en la carpeta docs.

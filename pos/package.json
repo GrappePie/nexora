@@ -1,9 +1,0 @@
-{
-  "name": "pos",
-  "version": "1.0.0",
-  "private": true,
-  "scripts": {
-    "build": "echo 'building pos app'",
-    "test": "echo 'testing pos app'"
-  }
-}
